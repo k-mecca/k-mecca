@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sentence-transformers
+pillow
+python-multipart
+boto3
+psycopg2-binary
+pgvector
