@@ -12,13 +12,15 @@ ai-engine-python/__pycache__/
 
 # Env / secrets
 .env
-.env.*
+.env.local
+!.env.example
 .aws/
 
 # Data / datasets / vector index dumps
 dataset*/
 *.index.json
 uploads/
+케이메카_*.xlsx
 
 # OS
 .DS_Store
