@@ -12,5 +12,9 @@ class ClipEngine(EmbeddingEngine):
         self.model = SentenceTransformer(MODEL_NAME)
 
     def embed_image(self, image):
-        embedding = self.model.encode(image)
+        # pgvector 인덱스가 cosine distance(vector_cosine_ops) 기준이라
+        # 정규화된 벡터로 저장/비교하도록 명시 (정규화 안 해도 코사인 유사도
+        # 자체는 수학적으로 같지만, 나중에 내적(inner product) 등 다른
+        # 거리 연산으로 바꿀 때 조용히 틀어지는 걸 방지하기 위해 명시적으로 고정)
+        embedding = self.model.encode(image, normalize_embeddings=True)
         return embedding.tolist()
