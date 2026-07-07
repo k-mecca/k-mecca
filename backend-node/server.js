@@ -26,8 +26,8 @@ const imageUpload = multer({
   },
 });
 
-// 로컬 개발 중 프론트(3001)에서 백엔드(3000)로 호출 가능하게 허용
-// (실제 배포 시에는 nginx가 같은 도메인으로 묶어주므로 이 CORS 설정 자체가 불필요해짐)
+// 로컬 개발 중 프론트(3001)에서 백엔드(3000)로 호출할수있게 허용해놓고
+// (실제 배포 시에는 nginx가 같은 도메인으로 묶어주므로 이 CORS 설정 자체가 불필요)
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "http://localhost:3001");
   res.header("Access-Control-Allow-Methods", "GET,POST");
