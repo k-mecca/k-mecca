@@ -7,8 +7,8 @@ const { uploadRawImage, deleteRawImage } = require("./s3");
 
 const AI_ENGINE_URL = process.env.AI_ENGINE_URL || "http://127.0.0.1:8000";
 // top-1 유사도가 이 값 이상이면 "확신 있음"으로 분류 (잠정치, PoC 후 조정 예정)
-const rawThreshold = Number(process.env.CONFIDENCE_THRESHOLD ?? 0.5);
-const CONFIDENCE_THRESHOLD = Number.isFinite(rawThreshold) ? rawThreshold : 0.5;
+const rawThreshold = Number(process.env.CONFIDENCE_THRESHOLD ?? 0.3);
+const CONFIDENCE_THRESHOLD = Number.isFinite(rawThreshold) ? rawThreshold : 0.3;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
