@@ -177,15 +177,14 @@ app.post("/api/scan", imageUpload.single("photo"), async (req, res) => {
       });
     }
 
-    // mode === "upload" — 렌즈 API 연동은 별도 작업으로 미루고 지금은 안내문구만 반환
+    // mode === "upload" — 외부(Lens API) 참고 정보는 채택하지 않기로 결정, 직원 문의 안내만 반환
     return res.json({
       isConfident: false,
       candidates,
       guidance: {
-        type: "lens",
+        type: "staff",
         message: "정확한 재고/가격은 매장 직원에게 문의해주세요.",
       },
-      externalReference: [], // TODO: Google/Naver Lens API 연동 후 채우기
     });
   } catch (err) {
     console.error(err);
