@@ -1,8 +1,12 @@
+from io import BytesIO
+
 from fastapi import FastAPI, Form, HTTPException, UploadFile, File
+from PIL import Image, UnidentifiedImageError
 
 from augmentation import build_augmented_set
 from db import get_connection
 from engines import get_engine
+from search import search_top5
 
 app = FastAPI()
 engine = get_engine()
@@ -11,6 +15,28 @@ engine = get_engine()
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# backend-node만 호출하는 내부 전용 API. 사진 1장을 받아서 top-5 후보를 찾는다.
+# 등록(embed-and-store)과 달리 증강을 하지 않는다 — 이 사진은 "비교당할 재료"를
+# 늘리는 게 아니라 "비교하는 쪽"(질의)이라서 벡터 1개만 있으면 된다.
+@app.post("/search")
+async def search(
+    index_type: str = Form(...),
+    file: UploadFile = File(...),
+):
+    if index_type not in ("store", "upload"):
+        raise HTTPException(status_code=400, detail="index_type은 store 또는 upload여야 합니다.")
+
+    image_bytes = await file.read()
+    try:
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="이미지 파일을 읽을 수 없습니다.")
+    embedding = engine.embed_image(image)
+
+    candidates = search_top5(embedding, index_type)
+    return {"candidates": candidates}
 
 
 # backend-node만 호출하는 내부 전용 API. 사진 여러 장을 한 번에 받아서:

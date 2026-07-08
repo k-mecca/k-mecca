@@ -6,6 +6,9 @@ const { parseExcelBuffer } = require("./excelImport");
 const { uploadRawImage, deleteRawImage } = require("./s3");
 
 const AI_ENGINE_URL = process.env.AI_ENGINE_URL || "http://127.0.0.1:8000";
+// top-1 유사도가 이 값 이상이면 "확신 있음"으로 분류 (잠정치, PoC 후 조정 예정)
+const rawThreshold = Number(process.env.CONFIDENCE_THRESHOLD ?? 0.3);
+const CONFIDENCE_THRESHOLD = Number.isFinite(rawThreshold) ? rawThreshold : 0.3;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,10 +29,14 @@ const imageUpload = multer({
   },
 });
 
-// 로컬 개발 중 프론트(3001)에서 백엔드(3000)로 호출할수있게 허용해놓고
-// (실제 배포 시에는 nginx가 같은 도메인으로 묶어주므로 이 CORS 설정 자체가 불필요)
+// 로컬 개발 중 프론트(3001)/임시 테스트 페이지(5500)에서 백엔드(3000)로
+// 호출할수있게 허용해놓고 (실제 배포 시에는 nginx가 같은 도메인으로 묶어주므로
+// 이 CORS 설정 자체가 불필요)
+const ALLOWED_ORIGINS = new Set(["http://localhost:3001", "http://localhost:5500"]);
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "http://localhost:3001");
+  if (ALLOWED_ORIGINS.has(req.headers.origin)) {
+    res.header("Access-Control-Allow-Origin", req.headers.origin);
+  }
   res.header("Access-Control-Allow-Methods", "GET,POST");
   res.header("Access-Control-Allow-Headers", "Content-Type");
   next();
@@ -126,6 +133,62 @@ app.post("/api/register", imageUpload.array("photos", 5), async (req, res) => {
       s3Paths.map((key) => deleteRawImage(key).catch((e) => console.error("S3 정리 실패:", e))),
     );
     return res.status(500).json({ error: "등록 처리 중 오류가 발생했습니다." });
+  }
+});
+
+// 인식: 매장 내(store) 인식과 업로드 확인(upload)이 검색 로직은 완전히 같고
+// mode(=index_type)만 다르다. 실제 벡터 검색/CLIP 계산은 ai-engine-python이 하고,
+// 여기서는 top-1 점수로 "확신 있음/없음"만 판단해서 안내문구를 붙여 응답한다.
+app.post("/api/scan", imageUpload.single("photo"), async (req, res) => {
+  const mode = req.query.mode;
+  if (mode !== "store" && mode !== "upload") {
+    return res.status(400).json({ error: "mode 쿼리 파라미터는 store 또는 upload여야 합니다." });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: "photo 필드로 사진을 첨부해주세요." });
+  }
+
+  try {
+    const form = new FormData();
+    form.append("index_type", mode);
+    form.append("file", new Blob([req.file.buffer], { type: req.file.mimetype }), "query.jpg");
+
+    const response = await fetch(`${AI_ENGINE_URL}/search`, { method: "POST", body: form });
+    if (!response.ok) {
+      throw new Error(`ai-engine-python 응답 오류 (${response.status})`);
+    }
+    const data = await response.json();
+    const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+
+    const isConfident = candidates.length > 0 && candidates[0].score >= CONFIDENCE_THRESHOLD;
+
+    if (isConfident) {
+      return res.json({ isConfident: true, candidates });
+    }
+
+    if (mode === "store") {
+      return res.json({
+        isConfident: false,
+        candidates,
+        guidance: {
+          type: "barcode",
+          message: "정확히 인식하지 못했습니다. 상품에 붙은 바코드를 비춰주세요.",
+        },
+      });
+    }
+
+    // mode === "upload" — 외부(Lens API) 참고 정보는 채택하지 않기로 결정, 직원 문의 안내만 반환
+    return res.json({
+      isConfident: false,
+      candidates,
+      guidance: {
+        type: "staff",
+        message: "정확한 재고/가격은 매장 직원에게 문의해주세요.",
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "인식 처리 중 오류가 발생했습니다." });
   }
 });
 

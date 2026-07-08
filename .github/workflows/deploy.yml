@@ -22,6 +22,25 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            cat > /home/ubuntu/k-mecca/backend-node/.env << 'ENVEOF'
+            DB_HOST=${{ secrets.DB_HOST }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            AI_ENGINE_URL=http://127.0.0.1:8000
+            S3_BUCKET=k-mecca-325144789320
+            AWS_REGION=ap-northeast-2
+            ENVEOF
+
+            cat > /home/ubuntu/k-mecca/ai-engine-python/.env << 'ENVEOF'
+            DB_HOST=${{ secrets.DB_HOST }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            ENVEOF
+
             # 2. backend-node / ai-engine-python 의존성 설치는 서로 무관한 폴더라 병렬로 실행
             (
               cd /home/ubuntu/k-mecca/backend-node
