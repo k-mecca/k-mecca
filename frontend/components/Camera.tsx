@@ -7,12 +7,14 @@ import Header from "./Header";
 import Main from "./Main";
 import { useProductStore } from "@/store/productStore";
 import { productGet } from "@/service/staff";
+import NoProductDialog from "./NoProductDialog";
 
 export default function Home() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const lookingUpRef = useRef(false);
   const confirmedRef = useRef(false);
+  const [open, setOpen] = useState(false);
 
   const barcode = useProductStore((state) => state.barcode);
   const setBarcode = useProductStore((state) => state.setBarcode);
@@ -54,14 +56,12 @@ export default function Home() {
                 const result = await productGet(barcodeNumber);
 
                 if (result.registered === true) {
-                  alert("이미 등록된 바코드입니다.");
                   confirmedRef.current = true;
                   setBarcode(barcodeNumber);
                   return;
                 }
 
-                alert("등록되지 않은 바코드입니다. 엑셀로 먼저 등록해주세요.");
-                lookingUpRef.current = false;
+                setOpen(true);
               } catch (error) {
                 console.error(error);
                 lookingUpRef.current = false;
@@ -76,6 +76,13 @@ export default function Home() {
 
     return () => controls?.stop();
   }, [resetPhotos, setBarcode, setIsCompleted]);
+
+  const handleNoProductChange = (open: boolean) => {
+    setOpen(open);
+    if (!open) {
+      lookingUpRef.current = false;
+    }
+  };
 
   const onCapture = async () => {
     if (photos.length === 4) return;
@@ -122,6 +129,10 @@ export default function Home() {
         isScanned={barcode || null}
         photoCount={photos.length}
         onCapture={onCapture}
+      />
+      <NoProductDialog
+        open={open}
+        onOpenChange={handleNoProductChange}
       />
     </div>
   );
