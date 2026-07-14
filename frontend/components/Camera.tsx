@@ -1,18 +1,28 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import Header from "./Header";
 import Main from "./Main";
+import { useProductStore } from "@/store/productStore";
 
 export default function Home() {
   const router = useRouter();
-  const [isScanned, setIsScanned] = useState(true);
-  const [photos, setPhotos] = useState<File[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  const barcode = useProductStore((state) => state.barcode);
+  const setBarcode = useProductStore((state) => state.setBarcode);
+  const images = useProductStore((state) => state.images);
+  const setImage = useProductStore((state) => state.setImage);
+  const resetImages = useProductStore((state) => state.resetImages);
+  const setIsCompleted = useProductStore((state) => state.setIsCompleted);
+
   useEffect(() => {
+    resetImages();
+    setBarcode("");
+    setIsCompleted(false);
+
     const codeReader = new BrowserMultiFormatReader();
     let controls: { stop: () => void } | undefined;
 
@@ -30,7 +40,7 @@ export default function Home() {
           videoRef.current!,
           (res) => {
             if (res) {
-              setIsScanned(true);
+              setBarcode(res.getText());
             }
           },
         );
@@ -40,10 +50,10 @@ export default function Home() {
     })();
 
     return () => controls?.stop();
-  }, []);
+  }, [resetImages, setBarcode, setIsCompleted]);
 
   const onCapture = async () => {
-    if (photos.length === 4) return;
+    if (images.length === 4) return;
 
     const video = videoRef.current;
     if (!video) return;
@@ -59,12 +69,22 @@ export default function Home() {
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
     if (!blob) return;
 
-    const file = new File([blob], `photo-${photos.length + 1}-${Date.now()}.jpg`, {
+    const file = new File([blob], `photo-${images.length + 1}-${Date.now()}.jpg`, {
       type: "image/jpeg",
     });
 
-    setPhotos((prev) => [...prev, file]);
+    setImage(URL.createObjectURL(file));
   };
+
+  useEffect(() => {
+    if (images.length === 4 && barcode) {
+      const timer = setTimeout(() => {
+        router.push(`/admin/${barcode}`);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [images, barcode, router]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -74,8 +94,8 @@ export default function Home() {
       />
       <Header />
       <Main
-        isScanned={isScanned}
-        photoCount={photos.length}
+        isScanned={barcode || null}
+        photoCount={images.length}
         onCapture={onCapture}
       />
     </div>

@@ -10,7 +10,7 @@ const PHOTO_STEPS: { guideMessage: string; Icon: IconType }[] = [
 ];
 
 type MainProps = {
-  isScanned: boolean;
+  isScanned: string | null;
   photoCount: number;
   onCapture: () => void;
 };
