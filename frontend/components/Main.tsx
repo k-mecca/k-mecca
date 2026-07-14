@@ -1,4 +1,5 @@
 import Scanner from "./Scanner";
+import InputDrawer from "./InputDrawer";
 import type { IconType } from "react-icons";
 import { FaArrowUp, FaArrowRotateRight, FaArrowRotateLeft, FaArrowDown } from "react-icons/fa6";
 
@@ -45,9 +46,7 @@ const Main = ({ isScanned, photoCount, onCapture }: MainProps) => {
           </button>
         </footer>
       ) : (
-        <button className="relative z-10 rounded-full bg-[#F9FAFBEB] px-5 py-4 font-semibold backdrop-blur-[6px]">
-          바코드 번호 입력
-        </button>
+        <InputDrawer />
       )}
     </div>
   );

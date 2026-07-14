@@ -47,6 +47,7 @@ export default function Home() {
           videoRef.current!,
           (res) => {
             if (!res || lookingUpRef.current || confirmedRef.current) return;
+            if (useProductStore.getState().barcode) return;
 
             const barcodeNumber = res.getText();
             lookingUpRef.current = true;
