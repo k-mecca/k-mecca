@@ -5,9 +5,9 @@ import { useProductStore } from "@/store/productStore";
 
 const ProductInfo = () => {
   const barcode = useProductStore((state) => state.barcode);
-  const images = useProductStore((state) => state.images);
+  const previews = useProductStore((state) => state.previews);
 
-  if (!images.length) return null;
+  if (!previews.length) return null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -19,7 +19,7 @@ const ProductInfo = () => {
       <div className="border-t border-[#E5E5EA]"></div>
 
       <div className="flex w-full gap-2">
-        {images.map((src, index) => (
+        {previews.map((src, index) => (
           <div
             key={src}
             className="relative aspect-square w-full">

@@ -1,27 +1,32 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import Header from "./Header";
 import Main from "./Main";
 import { useProductStore } from "@/store/productStore";
+import { productGet } from "@/service/staff";
 
 export default function Home() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const lookingUpRef = useRef(false);
+  const confirmedRef = useRef(false);
 
   const barcode = useProductStore((state) => state.barcode);
   const setBarcode = useProductStore((state) => state.setBarcode);
-  const images = useProductStore((state) => state.images);
-  const setImage = useProductStore((state) => state.setImage);
-  const resetImages = useProductStore((state) => state.resetImages);
+  const photos = useProductStore((state) => state.photos);
+  const addPhoto = useProductStore((state) => state.addPhoto);
+  const resetPhotos = useProductStore((state) => state.resetPhotos);
   const setIsCompleted = useProductStore((state) => state.setIsCompleted);
 
   useEffect(() => {
-    resetImages();
+    resetPhotos();
     setBarcode("");
     setIsCompleted(false);
+    lookingUpRef.current = false;
+    confirmedRef.current = false;
 
     const codeReader = new BrowserMultiFormatReader();
     let controls: { stop: () => void } | undefined;
@@ -39,9 +44,29 @@ export default function Home() {
           },
           videoRef.current!,
           (res) => {
-            if (res) {
-              setBarcode(res.getText());
-            }
+            if (!res || lookingUpRef.current || confirmedRef.current) return;
+
+            const barcodeNumber = res.getText();
+            lookingUpRef.current = true;
+
+            (async () => {
+              try {
+                const result = await productGet(barcodeNumber);
+
+                if (result.registered === true) {
+                  alert("이미 등록된 바코드입니다.");
+                  confirmedRef.current = true;
+                  setBarcode(barcodeNumber);
+                  return;
+                }
+
+                alert("등록되지 않은 바코드입니다. 엑셀로 먼저 등록해주세요.");
+                lookingUpRef.current = false;
+              } catch (error) {
+                console.error(error);
+                lookingUpRef.current = false;
+              }
+            })();
           },
         );
       } catch (e) {
@@ -50,10 +75,10 @@ export default function Home() {
     })();
 
     return () => controls?.stop();
-  }, [resetImages, setBarcode, setIsCompleted]);
+  }, [resetPhotos, setBarcode, setIsCompleted]);
 
   const onCapture = async () => {
-    if (images.length === 4) return;
+    if (photos.length === 4) return;
 
     const video = videoRef.current;
     if (!video) return;
@@ -69,22 +94,22 @@ export default function Home() {
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
     if (!blob) return;
 
-    const file = new File([blob], `photo-${images.length + 1}-${Date.now()}.jpg`, {
+    const file = new File([blob], `photo-${photos.length + 1}-${Date.now()}.jpg`, {
       type: "image/jpeg",
     });
 
-    setImage(URL.createObjectURL(file));
+    addPhoto(file);
   };
 
   useEffect(() => {
-    if (images.length === 4 && barcode) {
+    if (photos.length === 4 && barcode) {
       const timer = setTimeout(() => {
         router.push(`/admin/${barcode}`);
       }, 3000);
 
       return () => clearTimeout(timer);
     }
-  }, [images, barcode, router]);
+  }, [photos, barcode, router]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -95,7 +120,7 @@ export default function Home() {
       <Header />
       <Main
         isScanned={barcode || null}
-        photoCount={images.length}
+        photoCount={photos.length}
         onCapture={onCapture}
       />
     </div>
