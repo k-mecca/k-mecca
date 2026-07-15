@@ -1,0 +1,41 @@
+"use client";
+
+import { useState } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PiImagesSquareFill } from "react-icons/pi";
+
+function Footer() {
+  const [tab, setTab] = useState("product");
+
+  return (
+    <div className="absolute right-0 bottom-0 left-0 flex items-center justify-center gap-2 p-6">
+      <button className="flex h-13 w-13 items-center justify-center rounded-full bg-[#E5E7EB] shadow-sm">
+        <PiImagesSquareFill className="text-3xl" />
+      </button>
+
+      <Tabs
+        value={tab}
+        onValueChange={setTab}>
+        <TabsList className="relative inline-grid h-14 grid-cols-2 rounded-full bg-[#6A7282]/75 p-1.5 shadow-sm">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute top-1.5 bottom-1.5 left-1.5 w-[calc((100%-0.75rem)/2)] rounded-full bg-[#E5E7EB] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+            style={{ transform: `translateX(${tab === "barcode" ? "100%" : "0%"})` }}
+          />
+          <TabsTrigger
+            value="product"
+            className="relative z-10 h-full w-full rounded-full bg-transparent px-5 font-medium text-[#99A1AF] shadow-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-transparent data-active:bg-transparent data-active:text-[#1E2939] data-active:shadow-none dark:data-active:bg-transparent">
+            사물 인식
+          </TabsTrigger>
+          <TabsTrigger
+            value="barcode"
+            className="relative z-10 h-full w-full rounded-full bg-transparent px-5 font-medium text-[#99A1AF] shadow-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-transparent data-active:bg-transparent data-active:text-[#1E2939] data-active:shadow-none dark:data-active:bg-transparent">
+            바코드 인식
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </div>
+  );
+}
+
+export default Footer;
