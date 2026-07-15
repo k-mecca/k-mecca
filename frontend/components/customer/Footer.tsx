@@ -8,7 +8,7 @@ function Footer() {
   const [tab, setTab] = useState("product");
 
   return (
-    <div className="absolute right-0 bottom-0 left-0 flex items-center justify-center gap-2 p-6">
+    <div className="relative z-10 flex shrink-0 items-center justify-center gap-2 p-10">
       <button className="flex h-13 w-13 items-center justify-center rounded-full bg-[#E5E7EB] shadow-sm">
         <PiImagesSquareFill className="text-3xl" />
       </button>

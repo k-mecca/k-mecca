@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Webcam from "react-webcam";
+import { IoClose } from "react-icons/io5";
 import Header from "@/components/customer/Header";
 import Scanner from "@/components/Scanner";
 import Footer from "@/components/customer/Footer";
@@ -44,9 +46,10 @@ interface ImageQualityResult {
   sharpness: number;
 }
 
-// 가이드 박스 중앙 정렬
+// 가이드 박스 중앙 정렬 (Scanner: inset padding + aspect-square w-full)
 function getGuideBox(containerWidth: number, containerHeight: number): Rectangle {
-  const size = Math.min(containerWidth, containerHeight) - GUIDE_PADDING * 2;
+  const padding = GUIDE_PADDING;
+  const size = Math.min(containerWidth, containerHeight) - padding * 2;
   return {
     x: (containerWidth - size) / 2,
     y: (containerHeight - size) / 2,
@@ -84,6 +87,41 @@ function clampGuideBox(rect: Rectangle, maxWidth: number, maxHeight: number): Re
   const width = Math.max(1, Math.min(rect.width, maxWidth - x));
   const height = Math.max(1, Math.min(rect.height, maxHeight - y));
   return { x, y, width, height };
+}
+
+// 가이드 박스 영역만 잘라 JPEG Blob으로 저장
+async function captureGuideBoxPhoto(video: HTMLVideoElement, container: HTMLDivElement): Promise<Blob | null> {
+  const videoWidth = video.videoWidth;
+  const videoHeight = video.videoHeight;
+  if (!videoWidth || !videoHeight) return null;
+
+  const screenGuide = getGuideBox(container.clientWidth, container.clientHeight);
+  const videoGuide = clampGuideBox(
+    realWebcamPixel(screenGuide, videoWidth, videoHeight, container.clientWidth, container.clientHeight),
+    videoWidth,
+    videoHeight,
+  );
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.floor(videoGuide.width);
+  canvas.height = Math.floor(videoGuide.height);
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.drawImage(
+    video,
+    Math.floor(videoGuide.x),
+    Math.floor(videoGuide.y),
+    canvas.width,
+    canvas.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
+
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
 }
 
 // 픽셀 밝기 계산
@@ -335,6 +373,8 @@ export default function ObjectDetector() {
   const captureTriggeredRef = useRef(false);
 
   const [guideBox, setGuideBox] = useState<Rectangle | null>(null);
+  const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
+  const capturedPreviewUrlRef = useRef<string | null>(null);
 
   const resetReadyHold = useCallback(() => {
     readySinceRef.current = null;
@@ -353,12 +393,37 @@ export default function ObjectDetector() {
     }
     const elapsed = Date.now() - readySinceRef.current;
 
-    if (elapsed >= READY_HOLD_MS && !captureTriggeredRef.current) {
-      // window.open("https://www.kmecca.com/goods/goods_view.php?goodsNo=1000000299", "_blank", "noopener,noreferrer");
+    if (elapsed < READY_HOLD_MS || captureTriggeredRef.current) return;
 
-      console.log("인식 완료");
-      captureTriggeredRef.current = true;
-    }
+    const video = webcamRef.current?.video;
+    const container = containerRef.current;
+    if (!video || !container) return;
+
+    captureTriggeredRef.current = true;
+
+    void (async () => {
+      const blob = await captureGuideBoxPhoto(video, container);
+      if (!blob) {
+        captureTriggeredRef.current = false;
+        return;
+      }
+
+      if (capturedPreviewUrlRef.current) {
+        URL.revokeObjectURL(capturedPreviewUrlRef.current);
+      }
+
+      const url = URL.createObjectURL(blob);
+      capturedPreviewUrlRef.current = url;
+      setCapturedPreviewUrl(url);
+    })();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (capturedPreviewUrlRef.current) {
+        URL.revokeObjectURL(capturedPreviewUrlRef.current);
+      }
+    };
   }, []);
 
   // 메인 실행 로직
@@ -452,9 +517,7 @@ export default function ObjectDetector() {
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      className="relative h-screen w-full overflow-hidden">
+    <div className="relative h-dvh w-full overflow-hidden">
       <Webcam
         ref={webcamRef}
         audio={false}
@@ -468,25 +531,58 @@ export default function ObjectDetector() {
         className="hidden"
       />
 
-      <Header />
+      <div
+        ref={containerRef}
+        className="absolute inset-0 z-10">
+        {capturedPreviewUrl && (
+          <div className="absolute top-20 left-4 z-10 size-[70px]">
+            <Image
+              src={capturedPreviewUrl}
+              alt="capture-image"
+              fill
+              unoptimized
+              className="rounded-md border border-[#F9FAFB] object-cover shadow-sm"
+            />
+            <div className="absolute -top-1 -right-1 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[#F9FAFB]/75 shadow-sm">
+              <IoClose className="h-[18px] w-[18px] drop-shadow-sm" />
+            </div>
+          </div>
+        )}
 
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-        <Scanner />
+        {guideBox && (
+          <>
+            <div
+              className="pointer-events-none absolute"
+              style={{
+                left: guideBox.x,
+                top: guideBox.y,
+                width: guideBox.width,
+                height: guideBox.height,
+              }}>
+              <Scanner className="aspect-auto h-full w-full" />
+            </div>
+
+            <div
+              className="pointer-events-none absolute border-2 border-red-500"
+              style={{
+                left: guideBox.x,
+                top: guideBox.y,
+                width: guideBox.width,
+                height: guideBox.height,
+              }}
+            />
+          </>
+        )}
+
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+          <div className="pointer-events-auto">
+            <Header />
+          </div>
+          <div className="pointer-events-auto">
+            <Footer />
+          </div>
+        </div>
       </div>
-
-      <Footer />
-
-      {guideBox && (
-        <div
-          className="pointer-events-none absolute border-2 border-red-500"
-          style={{
-            left: guideBox.x,
-            top: guideBox.y,
-            width: guideBox.width,
-            height: guideBox.height,
-          }}
-        />
-      )}
     </div>
   );
 }

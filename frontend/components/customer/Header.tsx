@@ -4,7 +4,7 @@ import { MdLanguage } from "react-icons/md";
 
 const Header = () => {
   return (
-    <header className="absolute top-0 right-0 left-0 z-10 flex justify-between px-4 py-3">
+    <header className="relative z-10 flex shrink-0 justify-between px-4 py-3">
       <button className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F9FAFB]/75 shadow-sm">
         <FaArrowLeft className="text-2xl" />
       </button>
