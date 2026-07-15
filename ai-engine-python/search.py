@@ -13,7 +13,7 @@ def search_top5(embedding, index_type, limit=5):
     try:
         cur.execute(
             """
-            SELECT p.barcode, p.name, p.sale_price, p.current_stock, sub.score
+            SELECT p.barcode, p.name, p.sale_price, p.current_stock, p.image_url, sub.score
             FROM (
                 SELECT DISTINCT ON (barcode)
                     barcode,
@@ -38,7 +38,8 @@ def search_top5(embedding, index_type, limit=5):
             "name": name,
             "salePrice": float(sale_price) if sale_price is not None else None,
             "currentStock": current_stock,
+            "imageUrl": image_url,
             "score": float(score),
         }
-        for barcode, name, sale_price, current_stock, score in rows
+        for barcode, name, sale_price, current_stock, image_url, score in rows
     ]

@@ -21,6 +21,7 @@ function mapRow(row, barcodeText, isSalesFormat) {
       stock_status: null,
       unit: null,
       note: null,
+      image_url: row["대표이미지"] ?? null,
     };
   }
 
@@ -37,6 +38,7 @@ function mapRow(row, barcodeText, isSalesFormat) {
     stock_status: row["재고상태"] ?? null,
     unit: row["재고 단위"] ?? null,
     note: row["비고"] ?? null,
+    image_url: row["대표이미지"] ?? null,
   };
 }
 
