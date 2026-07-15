@@ -224,8 +224,8 @@ app.post(
         await client.query(
           `INSERT INTO products
             (barcode, name, product_group, category, supplier, purchase_price,
-             sale_price, current_stock, safety_stock, stock_status, unit, note, updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
+             sale_price, current_stock, safety_stock, stock_status, unit, note, image_url, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, now())
            ON CONFLICT (barcode) DO UPDATE SET
              name = COALESCE(EXCLUDED.name, products.name),
              product_group = COALESCE(EXCLUDED.product_group, products.product_group),
@@ -238,11 +238,12 @@ app.post(
              stock_status = COALESCE(EXCLUDED.stock_status, products.stock_status),
              unit = COALESCE(EXCLUDED.unit, products.unit),
              note = COALESCE(EXCLUDED.note, products.note),
+             image_url = COALESCE(EXCLUDED.image_url, products.image_url),
              updated_at = now()`,
           [
             p.barcode, p.name, p.product_group, p.category, p.supplier,
             p.purchase_price, p.sale_price, p.current_stock, p.safety_stock,
-            p.stock_status, p.unit, p.note,
+            p.stock_status, p.unit, p.note, p.image_url,
           ],
         );
         imported += 1;
