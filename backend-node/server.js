@@ -29,9 +29,16 @@ const imageUpload = multer({
   },
 });
 
-// 로컬 개발 중 프론트(3000)에서 백엔드로 호출할수있게 허용해놓고
+// 로컬 개발 중 프론트(3000)와, 모바일 실기기 테스트용 ngrok 터널에서
+// 백엔드로 호출할수있게 허용해놓고
+const ALLOWED_ORIGINS = new Set([
+  "http://localhost:3000",
+  "https://object-poppy-vendetta.ngrok-free.dev",
+]);
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+  if (ALLOWED_ORIGINS.has(req.headers.origin)) {
+    res.header("Access-Control-Allow-Origin", req.headers.origin);
+  }
   res.header("Access-Control-Allow-Methods", "GET,POST");
   res.header("Access-Control-Allow-Headers", "Content-Type");
   next();
