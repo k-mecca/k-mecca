@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import ProductInfo from "@/components/ProductInfo";
@@ -7,8 +9,18 @@ import Footer from "@/components/Footer";
 import { useProductStore } from "@/store/productStore";
 
 const RecognitionPage = () => {
+  const router = useRouter();
   const barcode = useProductStore((state) => state.barcode);
+  const photos = useProductStore((state) => state.photos);
   const isCompleted = useProductStore((state) => state.isCompleted);
+
+  useEffect(() => {
+    if (photos.length === 0) {
+      router.push("/admin/scan");
+    }
+  }, [photos, router]);
+
+  if (photos.length === 0) return null;
 
   return (
     <div className="relative h-full w-full">

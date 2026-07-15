@@ -33,16 +33,19 @@ const InputDrawer = () => {
     try {
       const result = await productGet(barcodeNumber);
 
+      // 바코드 있을 때
       if (result.registered === true) {
         setTimeout(() => {
           setDrawerOpen(false);
           setBarcode(barcodeNumber);
-        }, 800);
-        return;
+        }, 500);
+      } else {
+        // 바코드 없을 때
+        setTimeout(() => {
+          setNoProductOpen(true);
+          setValue(""); // 여기서 말고 dialog 확인 누른 후에 초기화 하기
+        }, 300);
       }
-
-      setValue("");
-      setNoProductOpen(true);
     } catch (error) {
       console.error(error);
     } finally {
@@ -81,7 +84,7 @@ const InputDrawer = () => {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 placeholder="바코드 번호를 입력해주세요"
-                className="h-[52px] w-full rounded-md border border-[#979797] bg-white p-3 text-base focus:outline-none"
+                className="h-[52px] w-full rounded-md border border-[#979797] bg-white p-3 focus:outline-none"
               />
             </DrawerDescription>
           </DrawerHeader>
@@ -89,7 +92,7 @@ const InputDrawer = () => {
             <Button
               onClick={handleSubmit}
               disabled={isLookingUp || !value.trim()}
-              className="h-[52px] px-5 py-4">
+              className="h-[52px] bg-[#282828] px-5 py-4 hover:bg-[#282828]">
               <span className="font-semibold text-[#F2F2F7]">등록하기</span>
             </Button>
           </DrawerFooter>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import Header from "./Header";
 import Main from "./Main";
+import { Spinner } from "./ui/spinner";
 import { useProductStore } from "@/store/productStore";
 import { productGet } from "@/service/staff";
 import NoProductDialog from "./NoProductDialog";
@@ -15,6 +16,7 @@ export default function Home() {
   const lookingUpRef = useRef(false);
   const confirmedRef = useRef(false);
   const [open, setOpen] = useState(false);
+  const [shutterFlash, setShutterFlash] = useState(false);
 
   const barcode = useProductStore((state) => state.barcode);
   const setBarcode = useProductStore((state) => state.setBarcode);
@@ -22,6 +24,7 @@ export default function Home() {
   const addPhoto = useProductStore((state) => state.addPhoto);
   const resetPhotos = useProductStore((state) => state.resetPhotos);
   const setIsCompleted = useProductStore((state) => state.setIsCompleted);
+  const isNavigating = photos.length === 4 && Boolean(barcode);
 
   useEffect(() => {
     resetPhotos();
@@ -86,10 +89,13 @@ export default function Home() {
   };
 
   const onCapture = async () => {
-    if (photos.length === 4) return;
+    if (photos.length === 4 || shutterFlash) return;
 
     const video = videoRef.current;
     if (!video) return;
+
+    setShutterFlash(true);
+    setTimeout(() => setShutterFlash(false), 100);
 
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
@@ -110,31 +116,43 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (photos.length === 4 && barcode) {
-      const timer = setTimeout(() => {
-        router.push(`/admin/${barcode}`);
-      }, 3000);
+    if (!isNavigating) return;
 
-      return () => clearTimeout(timer);
-    }
-  }, [photos, barcode, router]);
+    const timer = setTimeout(() => {
+      router.push(`/admin/${barcode}`);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [isNavigating, barcode, router]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div className={`relative h-full w-full overflow-hidden ${isNavigating ? "bg-white" : ""}`}>
       <video
         ref={videoRef}
-        className="h-full w-full object-cover"
+        className={`h-full w-full object-cover ${isNavigating ? "invisible" : ""}`}
       />
-      <Header />
-      <Main
-        isScanned={barcode || null}
-        photoCount={photos.length}
-        onCapture={onCapture}
-      />
+      {!isNavigating && (
+        <>
+          <Header />
+          <Main
+            isScanned={barcode || null}
+            photoCount={photos.length}
+            onCapture={onCapture}
+          />
+        </>
+      )}
       <NoProductDialog
         open={open}
         onOpenChange={handleNoProductChange}
       />
+
+      {shutterFlash && <div className="absolute inset-0 z-20 bg-black" />}
+
+      {isNavigating && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white">
+          <Spinner className="text-kmecca size-12" />
+        </div>
+      )}
     </div>
   );
 }
