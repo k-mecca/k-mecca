@@ -39,9 +39,15 @@ const UploadRecognition = () => {
                 />
               )}
             </div>
-            <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-1">
-              <span className="text-xs text-[#4A5565]">{uploadResult.barcode}</span>
-              <p className="truncate text-lg font-medium text-[#1E2939]">{uploadResult.name}</p>
+            <div className="relative z-10 flex flex-col">
+              <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+                <span className="text-xs text-[#4A5565]">{uploadResult.barcode}</span>
+                <p className="truncate text-lg font-medium text-[#1E2939]">{uploadResult.name}</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="bg-kmecca h-3 w-3 rounded-full"></div>
+                <span className="text-kmecca text-sm font-semibold">구매 가능</span>
+              </div>
             </div>
           </>
         ) : (

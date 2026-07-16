@@ -7,6 +7,7 @@ import Header from "@/components/customer/Header";
 import Scanner from "@/components/Scanner";
 import ScanOverlay from "@/components/customer/ScanOverlay";
 import UploadRecognition from "@/components/customer/UploadRecognition";
+import ResultCarousel from "@/components/customer/ResultCarousel";
 import Footer from "@/components/customer/Footer";
 import { scanRecognitionPost } from "@/service/customer";
 import { useScanStore } from "@/store/scanStore";
@@ -630,12 +631,12 @@ export default function ObjectDetector() {
               resetScan={resetScan}
             />
           </div>
+
           <div className="pointer-events-auto mt-auto">
             <UploadRecognition />
           </div>
-          <div className="pointer-events-auto">
-            <Footer />
-          </div>
+
+          <div className="pointer-events-auto">{isCaptured && scanResult ? <ResultCarousel /> : <Footer />}</div>
         </div>
       </div>
     </div>
