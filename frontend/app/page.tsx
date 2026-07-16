@@ -3,11 +3,14 @@
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Webcam from "react-webcam";
-import { IoClose } from "react-icons/io5";
 import Header from "@/components/customer/Header";
 import Scanner from "@/components/Scanner";
+import ScanOverlay from "@/components/customer/ScanOverlay";
 import UploadRecognition from "@/components/customer/UploadRecognition";
 import Footer from "@/components/customer/Footer";
+import { scanRecognitionPost } from "@/service/customer";
+import { useScanStore } from "@/store/scanStore";
+import { IoClose } from "react-icons/io5";
 
 const GUIDE_PADDING = 24; // Scanner 이미지 여백 p-6 (24px)
 const CAMERA_INTERVAL_MS = 500; // 화면 분석 주기
@@ -372,10 +375,13 @@ export default function ObjectDetector() {
   const baselineCenterFrameRef = useRef<ImageData | null>(null);
   const readySinceRef = useRef<number | null>(null);
   const captureTriggeredRef = useRef(false);
+  const isCapturedRef = useRef(false);
 
   const [guideBox, setGuideBox] = useState<Rectangle | null>(null);
+  const [isCaptured, setIsCaptured] = useState(false);
   const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
   const capturedPreviewUrlRef = useRef<string | null>(null);
+  const { scanResult, setScanResult } = useScanStore();
 
   const resetReadyHold = useCallback(() => {
     readySinceRef.current = null;
@@ -387,8 +393,29 @@ export default function ObjectDetector() {
     captureTriggeredRef.current = false;
   }, []);
 
+  /** 스캔·캡처 상태 전체 초기화 */
+  const resetScan = useCallback(() => {
+    centerCountRef.current = 0;
+    stableCountRef.current = 0;
+    previousCenterFrameRef.current = null;
+    baselineCenterFrameRef.current = null;
+    readySinceRef.current = null;
+    captureTriggeredRef.current = false;
+    isCapturedRef.current = false;
+
+    if (capturedPreviewUrlRef.current) {
+      URL.revokeObjectURL(capturedPreviewUrlRef.current);
+      capturedPreviewUrlRef.current = null;
+    }
+
+    setCapturedPreviewUrl(null);
+    setIsCaptured(false);
+  }, []);
+
   // ⑥ 캡처 — 4단계(품질 통과) 도달 후 유지 시간을 재고, 다 채워지면 1회만 실행
   const captureIfReady = useCallback(() => {
+    if (isCapturedRef.current) return;
+
     if (readySinceRef.current === null) {
       readySinceRef.current = Date.now();
     }
@@ -402,6 +429,7 @@ export default function ObjectDetector() {
 
     captureTriggeredRef.current = true;
 
+    // 가이드 박스 촬영
     void (async () => {
       const blob = await captureGuideBoxPhoto(video, container);
       if (!blob) {
@@ -416,8 +444,18 @@ export default function ObjectDetector() {
       const url = URL.createObjectURL(blob);
       capturedPreviewUrlRef.current = url;
       setCapturedPreviewUrl(url);
+
+      isCapturedRef.current = true;
+      setIsCaptured(true);
+
+      try {
+        const result = await scanRecognitionPost(blob);
+        setScanResult(result.candidates);
+      } catch (error) {
+        console.error(error);
+      }
     })();
-  }, []);
+  }, [setScanResult]);
 
   useEffect(() => {
     return () => {
@@ -429,6 +467,8 @@ export default function ObjectDetector() {
 
   // 메인 실행 로직
   const detectCenter = useCallback(() => {
+    if (isCapturedRef.current) return;
+
     const frame = captureFrame(webcamRef.current?.video, canvasRef.current, containerRef.current);
     if (!frame) return;
 
@@ -494,11 +534,13 @@ export default function ObjectDetector() {
     captureIfReady();
   }, [resetCaptureSession, resetReadyHold, captureIfReady]);
 
-  // 5초마다 detectCenter 로직 실행
+  // 0.5초마다 detectCenter 로직 실행 (캡처 완료 후 중단)
   useEffect(() => {
+    if (isCaptured) return;
+
     const timer = setInterval(detectCenter, CAMERA_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [detectCenter]);
+  }, [detectCenter, isCaptured]);
 
   // 웹캠 리사이징
   useEffect(() => {
@@ -561,10 +603,16 @@ export default function ObjectDetector() {
                 height: guideBox.height,
               }}>
               <Scanner className="aspect-auto h-full w-full" />
+
+              {!isCaptured && (
+                <div className="absolute inset-0 overflow-hidden rounded-[22px]">
+                  <ScanOverlay />
+                </div>
+              )}
             </div>
 
             <div
-              className="pointer-events-none absolute border-2 border-red-500"
+              className="pointer-events-none absolute"
               style={{
                 left: guideBox.x,
                 top: guideBox.y,
@@ -577,7 +625,10 @@ export default function ObjectDetector() {
 
         <div className="pointer-events-none absolute inset-0 flex flex-col">
           <div className="pointer-events-auto">
-            <Header />
+            <Header
+              isCaptured={isCaptured}
+              resetScan={resetScan}
+            />
           </div>
           <div className="pointer-events-auto mt-auto">
             <UploadRecognition />
