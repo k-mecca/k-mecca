@@ -9,6 +9,7 @@ const Scanner = ({ className }: { className?: string }) => {
         src={scan}
         alt="scan"
         fill
+        priority
         draggable={false}
         className="scale-101"
       />

@@ -1,17 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PiImagesSquareFill } from "react-icons/pi";
+import { uploadRecognition } from "@/service/customer";
 
 function Footer() {
   const [tab, setTab] = useState("product");
 
+  const handleUploadChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const image = e.target.files?.[0];
+    e.target.value = "";
+    if (!image) return;
+
+    try {
+      await uploadRecognition(image);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
     <div className="relative z-10 flex shrink-0 items-center justify-center gap-2 p-10">
-      <button className="flex h-13 w-13 items-center justify-center rounded-full bg-[#E5E7EB] shadow-sm">
+      <input
+        id="image-upload"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+        className="hidden"
+        onChange={handleUploadChange}
+      />
+      <label
+        htmlFor="image-upload"
+        className="flex h-13 w-13 cursor-pointer items-center justify-center rounded-full bg-[#E5E7EB] shadow-sm">
         <PiImagesSquareFill className="text-3xl" />
-      </button>
+      </label>
 
       <Tabs
         value={tab}
