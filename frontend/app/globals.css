@@ -124,7 +124,7 @@
 .scan-animation {
   height: 70%;
   background: linear-gradient(180deg, transparent 0%, rgb(29 202 211 / 0.25) 50%, transparent 100%);
-  animation: scan-move 5s ease-in-out infinite;
+  animation: scan-move 2.5s ease-in-out infinite;
 }
 
 @keyframes scan-move {

@@ -6,6 +6,7 @@ import Webcam from "react-webcam";
 import { IoClose } from "react-icons/io5";
 import Header from "@/components/customer/Header";
 import Scanner from "@/components/Scanner";
+import UploadRecognition from "@/components/customer/UploadRecognition";
 import Footer from "@/components/customer/Footer";
 
 const GUIDE_PADDING = 24; // Scanner 이미지 여백 p-6 (24px)
@@ -574,9 +575,12 @@ export default function ObjectDetector() {
           </>
         )}
 
-        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+        <div className="pointer-events-none absolute inset-0 flex flex-col">
           <div className="pointer-events-auto">
             <Header />
+          </div>
+          <div className="pointer-events-auto mt-auto">
+            <UploadRecognition />
           </div>
           <div className="pointer-events-auto">
             <Footer />

@@ -1,4 +1,6 @@
-export async function uploadRecognition(photo: Blob) {
+import type { ScanResponse } from "@/types/product";
+
+export async function uploadRecognitionPost(photo: Blob): Promise<ScanResponse> {
   const formData = new FormData();
   formData.append("photo", photo, "photo.jpeg");
 
@@ -8,7 +10,6 @@ export async function uploadRecognition(photo: Blob) {
   });
 
   const result = await response.json();
-  console.log(result);
 
   if (!response.ok) {
     throw new Error(result.error ?? "인식 실패");
