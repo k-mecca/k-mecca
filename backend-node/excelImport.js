@@ -22,6 +22,7 @@ function mapRow(row, barcodeText, isSalesFormat) {
       unit: null,
       note: null,
       image_url: row["대표이미지"] ?? null,
+      sales_count: row["판매수량"] ?? null,
     };
   }
 
@@ -39,6 +40,7 @@ function mapRow(row, barcodeText, isSalesFormat) {
     unit: row["재고 단위"] ?? null,
     note: row["비고"] ?? null,
     image_url: row["대표이미지"] ?? null,
+    sales_count: null, // 재고현황 포맷엔 판매수량 컬럼이 없음
   };
 }
 

@@ -73,6 +73,50 @@ app.get("/api/products/lookup", async (req, res) => {
   }
 });
 
+// 관련 상품(동일 아티스트) 조회: 스캔 결과로 얻은 바코드를 그대로 넣으면,
+// 그 상품의 artist를 찾아 같은 아티스트의 다른 상품들을 인기순(판매수량 내림차순)으로 반환한다.
+app.get("/api/products/:barcode/related", async (req, res) => {
+  const barcode = String(req.params.barcode ?? "").trim();
+
+  try {
+    const productResult = await pool.query(
+      "SELECT artist FROM products WHERE barcode = $1",
+      [barcode],
+    );
+    if (productResult.rows.length === 0) {
+      return res.status(404).json({ error: "상품마스터에 없는 바코드입니다." });
+    }
+
+    const { artist } = productResult.rows[0];
+    if (!artist) {
+      return res.json({ artist: null, related: [] });
+    }
+
+    const relatedResult = await pool.query(
+      `SELECT barcode, name, sale_price, current_stock, image_url, sales_count
+       FROM products
+       WHERE artist = $1 AND barcode != $2
+       ORDER BY sales_count DESC NULLS LAST, barcode`,
+      [artist, barcode],
+    );
+
+    return res.json({
+      artist,
+      related: relatedResult.rows.map((r) => ({
+        barcode: r.barcode,
+        name: r.name,
+        salePrice: r.sale_price !== null ? Number(r.sale_price) : null,
+        currentStock: r.current_stock,
+        imageUrl: r.image_url,
+        salesCount: r.sales_count,
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "관련 상품 조회 중 오류가 발생했습니다." });
+  }
+});
+
 // 상품 등록: 사진들을 S3에 저장하고, 각각을 ai-engine-python에 전달해서
 // 벡터화+DB저장까지 시킨다 (Node는 파일 전달까지만, 벡터 계산/저장은 Python 담당)
 app.post("/api/register", imageUpload.array("photos", 5), async (req, res) => {
@@ -224,8 +268,8 @@ app.post(
         await client.query(
           `INSERT INTO products
             (barcode, name, product_group, category, supplier, purchase_price,
-             sale_price, current_stock, safety_stock, stock_status, unit, note, image_url, updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, now())
+             sale_price, current_stock, safety_stock, stock_status, unit, note, image_url, sales_count, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, now())
            ON CONFLICT (barcode) DO UPDATE SET
              name = COALESCE(EXCLUDED.name, products.name),
              product_group = COALESCE(EXCLUDED.product_group, products.product_group),
@@ -239,11 +283,12 @@ app.post(
              unit = COALESCE(EXCLUDED.unit, products.unit),
              note = COALESCE(EXCLUDED.note, products.note),
              image_url = COALESCE(EXCLUDED.image_url, products.image_url),
+             sales_count = COALESCE(EXCLUDED.sales_count, products.sales_count),
              updated_at = now()`,
           [
             p.barcode, p.name, p.product_group, p.category, p.supplier,
             p.purchase_price, p.sale_price, p.current_stock, p.safety_stock,
-            p.stock_status, p.unit, p.note, p.image_url,
+            p.stock_status, p.unit, p.note, p.image_url, p.sales_count,
           ],
         );
         imported += 1;
