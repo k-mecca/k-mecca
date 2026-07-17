@@ -3,12 +3,13 @@
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Webcam from "react-webcam";
-import Camera from "@/components/Camera";
+import BarcodeCamera from "@/components/BarcodeCamera";
 import Header from "@/components/customer/Header";
 import Scanner from "@/components/Scanner";
 import ScanOverlay from "@/components/customer/ScanOverlay";
 import UploadRecognition from "@/components/customer/UploadRecognition";
 import ResultCarousel from "@/components/customer/ResultCarousel";
+import BarcodeScanResult from "@/components/customer/BarcodeScanResult";
 import Footer from "@/components/customer/Footer";
 import { scanRecognitionPost } from "@/service/customer";
 import { useScanStore } from "@/store/scanStore";
@@ -384,7 +385,7 @@ export default function ObjectDetector() {
   const [isCaptured, setIsCaptured] = useState(false);
   const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
   const capturedPreviewUrlRef = useRef<string | null>(null);
-  const { scanResult, setScanResult } = useScanStore();
+  const { scanResult, setScanResult, barcodeResult } = useScanStore();
 
   const resetReadyHold = useCallback(() => {
     readySinceRef.current = null;
@@ -539,6 +540,8 @@ export default function ObjectDetector() {
 
   const buttonValue = useFooterStore((state) => state.buttonValue);
 
+  const getWebcamVideo = useCallback(() => webcamRef.current?.video ?? null, []);
+
   // 0.5초마다 detectCenter 로직 실행 (search,  캡처 전일때)
   useEffect(() => {
     if (isCaptured || buttonValue !== "search") return;
@@ -637,7 +640,7 @@ export default function ObjectDetector() {
           </>
         )}
 
-        {buttonValue === "barcode" && <Camera />}
+        {buttonValue === "barcode" && <BarcodeCamera getVideo={getWebcamVideo} />}
 
         <div className="pointer-events-none absolute inset-0 flex flex-col">
           <div className="pointer-events-auto">
@@ -651,7 +654,15 @@ export default function ObjectDetector() {
             <UploadRecognition />
           </div>
 
-          <div className="pointer-events-auto">{isCaptured && scanResult ? <ResultCarousel /> : <Footer />}</div>
+          <div className="pointer-events-auto">
+            {isCaptured && scanResult ? (
+              <ResultCarousel />
+            ) : barcodeResult ? (
+              <BarcodeScanResult />
+            ) : (
+              <Footer />
+            )}
+          </div>
         </div>
       </div>
     </div>

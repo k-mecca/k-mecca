@@ -1,10 +1,15 @@
 import { create } from "zustand";
 import type { ProductData } from "@/types/product";
+import type { BarcodeData } from "@/types/product";
 
 interface ScanState {
   scanResult: ProductData[] | null;
   setScanResult: (result: ProductData[] | null) => void;
   resetScanResult: () => void;
+
+  barcodeResult: BarcodeData | null;
+  setBarcodeResult: (result: BarcodeData | null) => void;
+  resetBarcodeResult: () => void;
 }
 
 export const useScanStore = create<ScanState>((set) => ({
@@ -14,5 +19,13 @@ export const useScanStore = create<ScanState>((set) => ({
   },
   resetScanResult: () => {
     set({ scanResult: null });
+  },
+
+  barcodeResult: null,
+  setBarcodeResult: (result) => {
+    set({ barcodeResult: result });
+  },
+  resetBarcodeResult: () => {
+    set({ barcodeResult: null });
   },
 }));
