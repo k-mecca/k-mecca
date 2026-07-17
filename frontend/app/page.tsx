@@ -584,6 +584,7 @@ export default function ObjectDetector() {
         playsInline
         className="absolute inset-0 h-full w-full object-cover"
         screenshotFormat="image/jpeg"
+        videoConstraints={{ facingMode: { ideal: "environment" } }} // 후면 카메라 우선 요청 (전면은 "user")
       />
       {/* 화면에는 보이지 않는 웹캠 프레임 분석 캔버스 */}
       <canvas
@@ -657,7 +658,7 @@ export default function ObjectDetector() {
           <div className="pointer-events-auto">
             {isCaptured && scanResult ? (
               <ResultCarousel />
-            ) : barcodeResult ? (
+            ) : barcodeResult?.registered === true ? (
               <BarcodeScanResult />
             ) : (
               <Footer />

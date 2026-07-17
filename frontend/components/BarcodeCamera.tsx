@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
 import Scanner from "./Scanner";
+import NoProductDialog from "./NoProductDialog";
 import { useCustomerBarcodeStore } from "@/store/customerBarcodeStore";
 import { useScanStore } from "@/store/scanStore";
 import { productGet } from "@/service/staff";
@@ -34,16 +35,23 @@ async function waitForVideo(
 
 function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
   const onDetectedRef = useRef(onDetected);
-  const detectedRef = useRef(false);
+  const lookingUpRef = useRef(false);
+  const confirmedRef = useRef(false);
+  const [noProductOpen, setNoProductOpen] = useState(false);
+
   const setCustomerBarcode = useCustomerBarcodeStore((state) => state.setCustomerBarcode);
   const setBarcodeResult = useScanStore((state) => state.setBarcodeResult);
+  const resetBarcodeResult = useScanStore((state) => state.resetBarcodeResult);
 
   useEffect(() => {
     onDetectedRef.current = onDetected;
   }, [onDetected]);
 
   useEffect(() => {
-    detectedRef.current = false;
+    lookingUpRef.current = false;
+    confirmedRef.current = false;
+    resetBarcodeResult();
+
     let cancelled = false;
     let controls: IScannerControls | undefined;
     const reader = new BrowserMultiFormatReader();
@@ -55,10 +63,11 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
 
         // 이미 재생 중인 Webcam video라 decodeFromVideoElement(play 재시도) 대신 scan만 사용
         controls = reader.scan(video, (result) => {
-          if (!result || detectedRef.current || cancelled) return;
+          if (!result || lookingUpRef.current || confirmedRef.current || cancelled) return;
 
           const barcodeNumber = result.getText();
-          detectedRef.current = true;
+
+          lookingUpRef.current = true;
           setCustomerBarcode(barcodeNumber);
           onDetectedRef.current?.(barcodeNumber);
 
@@ -67,14 +76,20 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
               const barcodeData = await productGet(barcodeNumber);
               console.log(barcodeData);
 
+              if (cancelled) return;
+
               if (barcodeData.registered === true) {
+                confirmedRef.current = true;
                 setBarcodeResult(barcodeData);
+                controls?.stop();
+                return;
               }
 
-              controls?.stop();
+              // DB에 없음 → 다이얼로그, 확인 후 다시 스캔 가능
+              setNoProductOpen(true);
             } catch (error) {
               console.error(error);
-              detectedRef.current = false;
+              lookingUpRef.current = false;
             }
           })();
         });
@@ -93,12 +108,26 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
       cancelled = true;
       controls?.stop();
     };
-  }, [getVideo, setCustomerBarcode, setBarcodeResult]);
+  }, [getVideo, setCustomerBarcode, setBarcodeResult, resetBarcodeResult]);
+
+  const handleNoProductChange = (open: boolean) => {
+    setNoProductOpen(open);
+    if (!open) {
+      lookingUpRef.current = false;
+    }
+  };
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-      <Scanner />
-    </div>
+    <>
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+        <Scanner />
+      </div>
+
+      <NoProductDialog
+        open={noProductOpen}
+        onOpenChange={handleNoProductChange}
+      />
+    </>
   );
 }
 
