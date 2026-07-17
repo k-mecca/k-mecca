@@ -1,6 +1,8 @@
-import { RiShareBoxLine } from "react-icons/ri";
+import Image from "next/image";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { useScanStore } from "@/store/scanStore";
+import { formatUsd } from "@/utils/exchange-rate";
+import { RiShareBoxLine } from "react-icons/ri";
 
 const ResultCarousel = () => {
   const { scanResult } = useScanStore();
@@ -23,7 +25,16 @@ const ResultCarousel = () => {
             className="basis-[94%] pl-2">
             <div className="flex flex-col gap-3 rounded-md bg-white px-4 py-5">
               <div className="flex gap-2">
-                <div className="h-[124px] w-[124px] shrink-0 rounded-md bg-red-100" />
+                <div className="relative aspect-square h-[124px] w-[124px] shrink-0 rounded-md">
+                  {item.imageUrl && (
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.name}
+                      fill
+                      unoptimized // 외부 이미지 도메인 허용
+                    />
+                  )}
+                </div>
 
                 <div className="flex min-w-0 flex-1 flex-col">
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -38,7 +49,7 @@ const ResultCarousel = () => {
                     </div>
                     <div className="flex items-end gap-2">
                       <span className="text-2xl font-semibold text-gray-600">₩{item.salePrice?.toLocaleString()}</span>
-                      <span className="text-gray-500">$34.87</span>
+                      <span className="text-gray-500">${formatUsd(item.salePrice ?? 0)}</span>
                     </div>
                   </div>
                 </div>
@@ -46,7 +57,7 @@ const ResultCarousel = () => {
 
               <button
                 onClick={() => handleProductClick()}
-                className="bg-kmecca flex items-center justify-center gap-2 rounded-sm px-5 py-4">
+                className="bg-kmecca flex items-center justify-center gap-1 rounded-sm px-5 py-4">
                 <RiShareBoxLine className="text-[20px]" />
                 <span className="text-sm font-semibold">상품 공유하기</span>
               </button>
