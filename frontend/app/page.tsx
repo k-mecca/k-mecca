@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Webcam from "react-webcam";
+import Camera from "@/components/Camera";
 import Header from "@/components/customer/Header";
 import Scanner from "@/components/Scanner";
 import ScanOverlay from "@/components/customer/ScanOverlay";
@@ -11,6 +12,7 @@ import ResultCarousel from "@/components/customer/ResultCarousel";
 import Footer from "@/components/customer/Footer";
 import { scanRecognitionPost } from "@/service/customer";
 import { useScanStore } from "@/store/scanStore";
+import { useFooterStore } from "@/store/footerStore";
 import { IoClose } from "react-icons/io5";
 
 const GUIDE_PADDING = 24; // Scanner 이미지 여백 p-6 (24px)
@@ -535,13 +537,24 @@ export default function ObjectDetector() {
     captureIfReady();
   }, [resetCaptureSession, resetReadyHold, captureIfReady]);
 
-  // 0.5초마다 detectCenter 로직 실행 (캡처 완료 후 중단)
+  const buttonValue = useFooterStore((state) => state.buttonValue);
+
+  // 0.5초마다 detectCenter 로직 실행 (search,  캡처 전일때)
   useEffect(() => {
-    if (isCaptured) return;
+    if (isCaptured || buttonValue !== "search") return;
 
     const timer = setInterval(detectCenter, CAMERA_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [detectCenter, isCaptured]);
+    return () => {
+      clearInterval(timer);
+      // search 이탈/중단 시 진행 중이던 감지 상태 초기화
+      centerCountRef.current = 0;
+      stableCountRef.current = 0;
+      previousCenterFrameRef.current = null;
+      baselineCenterFrameRef.current = null;
+      readySinceRef.current = null;
+      captureTriggeredRef.current = false;
+    };
+  }, [detectCenter, isCaptured, buttonValue]);
 
   // 웹캠 리사이징
   useEffect(() => {
@@ -593,7 +606,7 @@ export default function ObjectDetector() {
           </div>
         )}
 
-        {guideBox && (
+        {guideBox && buttonValue === "search" && (
           <>
             <div
               className="pointer-events-none absolute"
@@ -623,6 +636,8 @@ export default function ObjectDetector() {
             />
           </>
         )}
+
+        {buttonValue === "barcode" && <Camera />}
 
         <div className="pointer-events-none absolute inset-0 flex flex-col">
           <div className="pointer-events-auto">

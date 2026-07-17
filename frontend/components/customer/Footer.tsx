@@ -7,6 +7,7 @@ import { IoSearch } from "react-icons/io5";
 import { FaBarcode } from "react-icons/fa6";
 import { uploadRecognitionPost } from "@/service/customer";
 import { useCustomerStore } from "@/store/customerStore";
+import { useFooterStore } from "@/store/footerStore";
 
 function Footer() {
   const [tab, setTab] = useState("search");
@@ -14,6 +15,7 @@ function Footer() {
   const setUploadImage = useCustomerStore((state) => state.setUploadImage);
   const setUploadScanning = useCustomerStore((state) => state.setUploadScanning);
   const setUploadResult = useCustomerStore((state) => state.setUploadResult);
+  const setButtonValue = useFooterStore((state) => state.setButtonValue);
 
   const handleUploadChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const image = e.target.files?.[0];
@@ -53,19 +55,27 @@ function Footer() {
               transform: `translateX(${tab === "search" ? "100%" : tab === "barcode" ? "200%" : "0%"})`,
             }}
           />
+
           <TabsTrigger
             value="product"
-            onClick={() => inputRef.current?.click()}
+            onClick={() => {
+              inputRef.current?.click();
+              setButtonValue("product");
+            }}
             className="relative z-10 h-full w-full rounded-full bg-transparent px-5 font-medium text-[#99A1AF] shadow-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-transparent data-active:bg-transparent data-active:text-[#1E2939] data-active:shadow-none dark:data-active:bg-transparent">
             <PiImagesSquareFill className="size-6" />
           </TabsTrigger>
+
           <TabsTrigger
             value="search"
+            onClick={() => setButtonValue("search")}
             className="relative z-10 h-full w-full rounded-full bg-transparent px-5 font-medium text-[#99A1AF] shadow-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-transparent data-active:bg-transparent data-active:text-[#1E2939] data-active:shadow-none dark:data-active:bg-transparent">
             <IoSearch className="size-6" />
           </TabsTrigger>
+
           <TabsTrigger
             value="barcode"
+            onClick={() => setButtonValue("barcode")}
             className="relative z-10 h-full w-full rounded-full bg-transparent px-5 font-medium text-[#99A1AF] shadow-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-transparent data-active:bg-transparent data-active:text-[#1E2939] data-active:shadow-none dark:data-active:bg-transparent">
             <FaBarcode className="size-6" />
           </TabsTrigger>
