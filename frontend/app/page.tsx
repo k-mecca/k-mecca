@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Webcam from "react-webcam";
 import BarcodeCamera from "@/components/BarcodeCamera";
 import Header from "@/components/customer/Header";
 import Scanner from "@/components/Scanner";
 import ScanOverlay from "@/components/customer/ScanOverlay";
+import ScanHistory from "@/components/customer/ScanHistory";
 import UploadRecognition from "@/components/customer/UploadRecognition";
 import ResultCarousel from "@/components/customer/ResultCarousel";
 import BarcodeScanResult from "@/components/customer/BarcodeScanResult";
@@ -15,7 +15,13 @@ import { scanRecognitionPost } from "@/service/customer";
 import { useScanStore } from "@/store/scanStore";
 import { useCustomerStore } from "@/store/customerStore";
 import { useFooterStore } from "@/store/footerStore";
-import { IoClose } from "react-icons/io5";
+import type { ProductData } from "@/types/product";
+
+type ScanHistoryEntry = {
+  id: string;
+  url: string;
+  candidates: ProductData[] | null;
+};
 
 const GUIDE_PADDING = 24; // Scanner 이미지 여백 p-6 (24px)
 const CAMERA_INTERVAL_MS = 500; // 화면 분석 주기
@@ -383,8 +389,9 @@ export default function ObjectDetector() {
   const isCapturedRef = useRef(false);
 
   const [guideBox, setGuideBox] = useState<Rectangle | null>(null);
-  const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
-  const capturedPreviewUrlRef = useRef<string | null>(null);
+  const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([]);
+  const scanHistoryRef = useRef<ScanHistoryEntry[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const { scanResult, setScanResult, barcodeResult, setBarcodeResult, isCaptured, setIsCaptured } = useScanStore();
   const uploadResult = useCustomerStore((state) => state.uploadResult);
   const clearUploadImage = useCustomerStore((state) => state.clearUploadImage);
@@ -399,7 +406,7 @@ export default function ObjectDetector() {
     captureTriggeredRef.current = false;
   }, []);
 
-  /** 스캔·캡처 상태 전체 초기화 */
+  /** 스캔·캡처 상태 전체 초기화 (미리보기 이미지는 유지) */
   const resetScan = useCallback(() => {
     centerCountRef.current = 0;
     stableCountRef.current = 0;
@@ -409,17 +416,53 @@ export default function ObjectDetector() {
     captureTriggeredRef.current = false;
     isCapturedRef.current = false;
 
-    if (capturedPreviewUrlRef.current) {
-      URL.revokeObjectURL(capturedPreviewUrlRef.current);
-      capturedPreviewUrlRef.current = null;
-    }
-
-    setCapturedPreviewUrl(null);
     setIsCaptured(false);
     setScanResult(null);
     setBarcodeResult(null);
     clearUploadImage(); // uploadResult + preview 전체 초기화
   }, [setIsCaptured, setScanResult, setBarcodeResult, clearUploadImage]);
+
+  const selectedHistoryIdRef = useRef<string | null>(null);
+
+  const removeScanHistory = useCallback(
+    (id: string) => {
+      const target = scanHistoryRef.current.find((item) => item.id === id);
+      if (target) URL.revokeObjectURL(target.url);
+
+      const next = scanHistoryRef.current.filter((item) => item.id !== id);
+      scanHistoryRef.current = next;
+      setScanHistory(next);
+
+      if (next.length === 0) {
+        selectedHistoryIdRef.current = null;
+        setSelectedHistoryId(null);
+        setScanResult(null);
+        setIsCaptured(false);
+        return;
+      }
+
+      if (selectedHistoryIdRef.current === id) {
+        const nextSelected = next[0];
+        selectedHistoryIdRef.current = nextSelected.id;
+        setSelectedHistoryId(nextSelected.id);
+        setScanResult(nextSelected.candidates);
+      }
+    },
+    [setIsCaptured, setScanResult],
+  );
+
+  const selectScanHistory = useCallback(
+    (id: string) => {
+      const item = scanHistoryRef.current.find((entry) => entry.id === id);
+      if (!item) return;
+
+      selectedHistoryIdRef.current = id;
+      setSelectedHistoryId(id);
+      setScanResult(item.candidates);
+      setIsCaptured(true);
+    },
+    [setIsCaptured, setScanResult],
+  );
 
   // ⑥ 캡처 — 4단계(품질 통과) 도달 후 유지 시간을 재고, 다 채워지면 1회만 실행
   const captureIfReady = useCallback(() => {
@@ -446,20 +489,32 @@ export default function ObjectDetector() {
         return;
       }
 
-      if (capturedPreviewUrlRef.current) {
-        URL.revokeObjectURL(capturedPreviewUrlRef.current);
-      }
-
+      const id = crypto.randomUUID();
       const url = URL.createObjectURL(blob);
-      capturedPreviewUrlRef.current = url;
-      setCapturedPreviewUrl(url);
+      const entry: ScanHistoryEntry = { id, url, candidates: null };
+
+      // 최신 캡처가 왼쪽(앞)에 오도록 앞에 추가
+      scanHistoryRef.current = [entry, ...scanHistoryRef.current];
+      setScanHistory(scanHistoryRef.current);
+      selectedHistoryIdRef.current = id;
+      setSelectedHistoryId(id);
 
       isCapturedRef.current = true;
       setIsCaptured(true);
+      setScanResult(null);
 
       try {
         const result = await scanRecognitionPost(blob);
-        setScanResult(result.candidates);
+        const updated = scanHistoryRef.current.map((item) =>
+          item.id === id ? { ...item, candidates: result.candidates } : item,
+        );
+        scanHistoryRef.current = updated;
+        setScanHistory(updated);
+
+        // 이 캡처가 여전히 선택된 경우에만 하단 결과 갱신
+        if (selectedHistoryIdRef.current === id) {
+          setScanResult(result.candidates);
+        }
       } catch (error) {
         console.error(error);
       }
@@ -468,9 +523,7 @@ export default function ObjectDetector() {
 
   useEffect(() => {
     return () => {
-      if (capturedPreviewUrlRef.current) {
-        URL.revokeObjectURL(capturedPreviewUrlRef.current);
-      }
+      scanHistoryRef.current.forEach((item) => URL.revokeObjectURL(item.url));
     };
   }, []);
 
@@ -600,19 +653,13 @@ export default function ObjectDetector() {
       <div
         ref={containerRef}
         className="absolute inset-0 z-10">
-        {capturedPreviewUrl && (
-          <div className="absolute top-20 left-4 z-10 size-[70px]">
-            <Image
-              src={capturedPreviewUrl}
-              alt="capture-image"
-              fill
-              unoptimized
-              className="rounded-md border border-[#F9FAFB] object-cover shadow-sm"
-            />
-            <div className="absolute -top-1 -right-1 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[#F9FAFB]/75 shadow-sm">
-              <IoClose className="h-[18px] w-[18px] drop-shadow-sm" />
-            </div>
-          </div>
+        {buttonValue === "search" && (
+          <ScanHistory
+            items={scanHistory}
+            selectedId={selectedHistoryId}
+            onSelect={selectScanHistory}
+            onRemove={removeScanHistory}
+          />
         )}
 
         {guideBox && buttonValue === "search" && (
@@ -661,7 +708,7 @@ export default function ObjectDetector() {
 
           <div className="pointer-events-auto">
             {isCaptured && scanResult ? (
-              <ResultCarousel />
+              <ResultCarousel key={selectedHistoryId ?? "scan-result"} />
             ) : isCaptured && barcodeResult?.registered === true ? (
               <BarcodeScanResult />
             ) : (
