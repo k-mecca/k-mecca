@@ -7,15 +7,31 @@ import { IoSearch } from "react-icons/io5";
 import { FaBarcode } from "react-icons/fa6";
 import { uploadRecognitionPost } from "@/service/customer";
 import { useCustomerStore } from "@/store/customerStore";
+import { useScanStore } from "@/store/scanStore";
 import { useFooterStore } from "@/store/footerStore";
 
-function Footer() {
+type FooterProps = {
+  resetScan?: () => void;
+};
+
+function Footer({ resetScan }: FooterProps) {
   const [tab, setTab] = useState("search");
   const inputRef = useRef<HTMLInputElement>(null);
   const setUploadImage = useCustomerStore((state) => state.setUploadImage);
   const setUploadScanning = useCustomerStore((state) => state.setUploadScanning);
   const setUploadResult = useCustomerStore((state) => state.setUploadResult);
+  const setIsCaptured = useScanStore((state) => state.setIsCaptured);
   const setButtonValue = useFooterStore((state) => state.setButtonValue);
+
+  const handleTabChange = (value: string) => {
+    resetScan?.();
+    setTab(value);
+    setButtonValue(value as "product" | "search" | "barcode");
+
+    if (value === "product") {
+      inputRef.current?.click();
+    }
+  };
 
   const handleUploadChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const image = e.target.files?.[0];
@@ -27,6 +43,7 @@ function Footer() {
 
     try {
       const res = await uploadRecognitionPost(image);
+      setIsCaptured(true);
       setUploadResult(res.candidates[0] ?? null);
     } catch (error) {
       console.error(error);
@@ -46,7 +63,7 @@ function Footer() {
 
       <Tabs
         value={tab}
-        onValueChange={setTab}>
+        onValueChange={handleTabChange}>
         <TabsList className="relative inline-grid h-14 grid-cols-3 rounded-full bg-[#6A7282]/75 p-1.5 shadow-sm">
           <span
             aria-hidden
@@ -59,8 +76,11 @@ function Footer() {
           <TabsTrigger
             value="product"
             onClick={() => {
-              inputRef.current?.click();
-              setButtonValue("product");
+              // 이미 product 탭일 때는 onValueChange가 안 떠서 여기서 처리
+              if (tab === "product") {
+                resetScan?.();
+                inputRef.current?.click();
+              }
             }}
             className="relative z-10 h-full w-full rounded-full bg-transparent px-5 font-medium text-[#99A1AF] shadow-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-transparent data-active:bg-transparent data-active:text-[#1E2939] data-active:shadow-none dark:data-active:bg-transparent">
             <PiImagesSquareFill className="size-6" />
@@ -68,14 +88,12 @@ function Footer() {
 
           <TabsTrigger
             value="search"
-            onClick={() => setButtonValue("search")}
             className="relative z-10 h-full w-full rounded-full bg-transparent px-5 font-medium text-[#99A1AF] shadow-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-transparent data-active:bg-transparent data-active:text-[#1E2939] data-active:shadow-none dark:data-active:bg-transparent">
             <IoSearch className="size-6" />
           </TabsTrigger>
 
           <TabsTrigger
             value="barcode"
-            onClick={() => setButtonValue("barcode")}
             className="relative z-10 h-full w-full rounded-full bg-transparent px-5 font-medium text-[#99A1AF] shadow-none transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-transparent data-active:bg-transparent data-active:text-[#1E2939] data-active:shadow-none dark:data-active:bg-transparent">
             <FaBarcode className="size-6" />
           </TabsTrigger>

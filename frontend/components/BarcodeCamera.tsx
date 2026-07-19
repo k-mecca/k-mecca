@@ -40,6 +40,7 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
   const [noProductOpen, setNoProductOpen] = useState(false);
 
   const setCustomerBarcode = useCustomerBarcodeStore((state) => state.setCustomerBarcode);
+  const setIsCaptured = useScanStore((state) => state.setIsCaptured);
   const setBarcodeResult = useScanStore((state) => state.setBarcodeResult);
   const resetBarcodeResult = useScanStore((state) => state.resetBarcodeResult);
 
@@ -80,6 +81,7 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
 
               if (barcodeData.registered === true) {
                 confirmedRef.current = true;
+                setIsCaptured(true);
                 setBarcodeResult(barcodeData);
                 controls?.stop();
                 return;
@@ -108,7 +110,7 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
       cancelled = true;
       controls?.stop();
     };
-  }, [getVideo, setCustomerBarcode, setBarcodeResult, resetBarcodeResult]);
+  }, [getVideo, setCustomerBarcode, setIsCaptured, setBarcodeResult, resetBarcodeResult]);
 
   const handleNoProductChange = (open: boolean) => {
     setNoProductOpen(open);

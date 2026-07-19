@@ -10,6 +10,9 @@ interface ScanState {
   barcodeResult: BarcodeData | null;
   setBarcodeResult: (result: BarcodeData | null) => void;
   resetBarcodeResult: () => void;
+
+  isCaptured: boolean;
+  setIsCaptured: (captured: boolean) => void;
 }
 
 export const useScanStore = create<ScanState>((set) => ({
@@ -27,5 +30,10 @@ export const useScanStore = create<ScanState>((set) => ({
   },
   resetBarcodeResult: () => {
     set({ barcodeResult: null });
+  },
+
+  isCaptured: false,
+  setIsCaptured: (captured) => {
+    set({ isCaptured: captured });
   },
 }));

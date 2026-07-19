@@ -13,6 +13,7 @@ import BarcodeScanResult from "@/components/customer/BarcodeScanResult";
 import Footer from "@/components/customer/Footer";
 import { scanRecognitionPost } from "@/service/customer";
 import { useScanStore } from "@/store/scanStore";
+import { useCustomerStore } from "@/store/customerStore";
 import { useFooterStore } from "@/store/footerStore";
 import { IoClose } from "react-icons/io5";
 
@@ -382,10 +383,12 @@ export default function ObjectDetector() {
   const isCapturedRef = useRef(false);
 
   const [guideBox, setGuideBox] = useState<Rectangle | null>(null);
-  const [isCaptured, setIsCaptured] = useState(false);
   const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
   const capturedPreviewUrlRef = useRef<string | null>(null);
-  const { scanResult, setScanResult, barcodeResult } = useScanStore();
+  const { scanResult, setScanResult, barcodeResult, setBarcodeResult, isCaptured, setIsCaptured } =
+    useScanStore();
+  const uploadResult = useCustomerStore((state) => state.uploadResult);
+  const clearUploadImage = useCustomerStore((state) => state.clearUploadImage);
 
   const resetReadyHold = useCallback(() => {
     readySinceRef.current = null;
@@ -414,7 +417,10 @@ export default function ObjectDetector() {
 
     setCapturedPreviewUrl(null);
     setIsCaptured(false);
-  }, []);
+    setScanResult(null);
+    setBarcodeResult(null);
+    clearUploadImage(); // uploadResult + preview 전체 초기화
+  }, [setIsCaptured, setScanResult, setBarcodeResult, clearUploadImage]);
 
   // ⑥ 캡처 — 4단계(품질 통과) 도달 후 유지 시간을 재고, 다 채워지면 1회만 실행
   const captureIfReady = useCallback(() => {
@@ -459,7 +465,7 @@ export default function ObjectDetector() {
         console.error(error);
       }
     })();
-  }, [setScanResult]);
+  }, [setScanResult, setIsCaptured]);
 
   useEffect(() => {
     return () => {
@@ -651,17 +657,16 @@ export default function ObjectDetector() {
             />
           </div>
 
-          <div className="pointer-events-auto mt-auto">
-            <UploadRecognition />
-          </div>
+          {/* 하단 컴포넌트 */}
+          <div className="pointer-events-auto mt-auto">{isCaptured && uploadResult && <UploadRecognition />}</div>
 
           <div className="pointer-events-auto">
             {isCaptured && scanResult ? (
               <ResultCarousel />
-            ) : barcodeResult?.registered === true ? (
+            ) : isCaptured && barcodeResult?.registered === true ? (
               <BarcodeScanResult />
             ) : (
-              <Footer />
+              <Footer resetScan={resetScan} />
             )}
           </div>
         </div>
