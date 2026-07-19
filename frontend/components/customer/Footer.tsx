@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, type ChangeEvent } from "react";
+import { useRef, type ChangeEvent } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PiImagesSquareFill } from "react-icons/pi";
 import { IoSearch } from "react-icons/io5";
@@ -15,17 +15,16 @@ type FooterProps = {
 };
 
 function Footer({ resetScan }: FooterProps) {
-  const [tab, setTab] = useState("search");
   const inputRef = useRef<HTMLInputElement>(null);
   const setUploadImage = useCustomerStore((state) => state.setUploadImage);
   const setUploadScanning = useCustomerStore((state) => state.setUploadScanning);
   const setUploadResult = useCustomerStore((state) => state.setUploadResult);
   const setIsCaptured = useScanStore((state) => state.setIsCaptured);
+  const buttonValue = useFooterStore((state) => state.buttonValue);
   const setButtonValue = useFooterStore((state) => state.setButtonValue);
 
   const handleTabChange = (value: string) => {
     resetScan?.();
-    setTab(value);
     setButtonValue(value as "product" | "search" | "barcode");
 
     if (value === "product") {
@@ -62,14 +61,14 @@ function Footer({ resetScan }: FooterProps) {
       />
 
       <Tabs
-        value={tab}
+        value={buttonValue}
         onValueChange={handleTabChange}>
         <TabsList className="relative inline-grid h-14 grid-cols-3 rounded-full bg-[#6A7282]/75 p-1.5 shadow-sm">
           <span
             aria-hidden
             className="pointer-events-none absolute top-1.5 bottom-1.5 left-1.5 w-[calc((100%-0.75rem)/3)] rounded-full bg-[#E5E7EB] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
             style={{
-              transform: `translateX(${tab === "search" ? "100%" : tab === "barcode" ? "200%" : "0%"})`,
+              transform: `translateX(${buttonValue === "search" ? "100%" : buttonValue === "barcode" ? "200%" : "0%"})`,
             }}
           />
 
@@ -77,7 +76,7 @@ function Footer({ resetScan }: FooterProps) {
             value="product"
             onClick={() => {
               // 이미 product 탭일 때는 onValueChange가 안 떠서 여기서 처리
-              if (tab === "product") {
+              if (buttonValue === "product") {
                 resetScan?.();
                 inputRef.current?.click();
               }

@@ -40,6 +40,7 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
   const [noProductOpen, setNoProductOpen] = useState(false);
 
   const setCustomerBarcode = useCustomerBarcodeStore((state) => state.setCustomerBarcode);
+  const isCaptured = useScanStore((state) => state.isCaptured);
   const setIsCaptured = useScanStore((state) => state.setIsCaptured);
   const setBarcodeResult = useScanStore((state) => state.setBarcodeResult);
   const resetBarcodeResult = useScanStore((state) => state.resetBarcodeResult);
@@ -47,6 +48,14 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
   useEffect(() => {
     onDetectedRef.current = onDetected;
   }, [onDetected]);
+
+  // 뒤로가기(resetScan)로 isCaptured가 false가 되면 스캔 재개
+  useEffect(() => {
+    if (!isCaptured) {
+      lookingUpRef.current = false;
+      confirmedRef.current = false;
+    }
+  }, [isCaptured]);
 
   useEffect(() => {
     lookingUpRef.current = false;
@@ -83,7 +92,6 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
                 confirmedRef.current = true;
                 setIsCaptured(true);
                 setBarcodeResult(barcodeData);
-                controls?.stop();
                 return;
               }
 

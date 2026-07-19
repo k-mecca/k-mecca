@@ -385,8 +385,7 @@ export default function ObjectDetector() {
   const [guideBox, setGuideBox] = useState<Rectangle | null>(null);
   const [capturedPreviewUrl, setCapturedPreviewUrl] = useState<string | null>(null);
   const capturedPreviewUrlRef = useRef<string | null>(null);
-  const { scanResult, setScanResult, barcodeResult, setBarcodeResult, isCaptured, setIsCaptured } =
-    useScanStore();
+  const { scanResult, setScanResult, barcodeResult, setBarcodeResult, isCaptured, setIsCaptured } = useScanStore();
   const uploadResult = useCustomerStore((state) => state.uploadResult);
   const clearUploadImage = useCustomerStore((state) => state.clearUploadImage);
 
