@@ -31,7 +31,7 @@ const ScanHistory = ({ items, selectedId, onSelect, onRemove }: ScanHistoryProps
   return (
     <div
       ref={scrollRef}
-      className="pointer-events-auto absolute top-20 left-4 z-10 flex w-[calc(100%-2rem)] touch-pan-x snap-x snap-mandatory scrollbar-none gap-4 overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      className="pointer-events-auto absolute top-20 left-4 z-10 flex w-[calc(100%-2rem)] touch-pan-x snap-x snap-mandatory scrollbar-none gap-3 overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       {items.map((item, index) => {
         const isSelected = item.id === selectedId;
 
