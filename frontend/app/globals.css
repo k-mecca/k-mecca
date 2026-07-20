@@ -42,11 +42,12 @@
   --color-card: var(--card);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
+  --radius-lg: var(--radius); /* 10px */
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --shadow-sm: 0px 2px 2px 0px rgba(0, 0, 0, 0.2);
 }
 
 :root {
@@ -119,14 +120,37 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* 스캔 애니메이션 */
+.scan-animation {
+  height: 70%;
+  background: linear-gradient(180deg, transparent 0%, rgb(29 202 211 / 0.4) 50%, transparent 100%);
+  animation: scan-move 2.5s ease-in-out infinite;
+}
+
+@keyframes scan-move {
+  0% {
+    top: -35%; /* height: 70%의 절반 */
+  }
+  50% {
+    top: 65%; /* 100 - 35 */
+  }
+  100% {
+    top: -35%;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+    -webkit-touch-callout: none;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    font-family: var(--font-pretendard, Arial, Helvetica, sans-serif);
   }
 }

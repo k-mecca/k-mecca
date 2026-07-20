@@ -1,4 +1,6 @@
-export async function productGet(barcode: string) {
+import type { BarcodeData } from "@/types/product";
+
+export async function productGet(barcode: string): Promise<BarcodeData> {
   const response = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/products/lookup?barcode=${encodeURIComponent(barcode)}`,
     {
