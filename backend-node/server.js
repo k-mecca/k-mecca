@@ -1,9 +1,12 @@
 require("dotenv").config({ quiet: true });
+const crypto = require("crypto");
 const express = require("express");
 const multer = require("multer");
 const { pool } = require("./db");
 const { parseExcelBuffer } = require("./excelImport");
-const { uploadRawImage, deleteRawImage } = require("./s3");
+const { uploadRawImage, deleteRawImage, uploadShareImage, getPresignedShareImageUrl } = require("./s3");
+
+const SHARE_EXPIRY_DAYS = 7;
 
 const AI_ENGINE_URL = process.env.AI_ENGINE_URL || "http://127.0.0.1:8000";
 // top-1 유사도가 이 값 이상이면 "확신 있음"으로 분류 (잠정치, PoC 후 조정 예정)
@@ -132,7 +135,8 @@ app.get("/api/products/:barcode/related", async (req, res) => {
       `SELECT barcode, name, sale_price, current_stock, image_url, sales_count
        FROM products
        WHERE artist = $1 AND barcode != $2
-       ORDER BY sales_count DESC NULLS LAST, barcode`,
+       ORDER BY sales_count DESC NULLS LAST, barcode
+       LIMIT 10`,
       [artist, barcode],
     );
 
@@ -271,6 +275,119 @@ app.post("/api/scan", imageUpload.single("photo"), async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "인식 처리 중 오류가 발생했습니다." });
+  }
+});
+
+// 스캔 결과 공유: A가 "공유하기"를 눌렀을 때만 호출됨 (스캔할 때마다 자동 저장 아님).
+// A가 봤던 사진(query 이미지)과 그때 받은 candidates를 그대로 저장해두고,
+// B는 shareId 하나로 A가 본 화면을 그대로 재현해서 볼 수 있게 한다.
+app.post("/api/scan/share", imageUpload.single("photo"), async (req, res) => {
+  const mode = req.body.mode;
+  if (mode !== "store" && mode !== "upload") {
+    return res.status(400).json({ error: "mode 필드는 store 또는 upload여야 합니다." });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: "photo 필드로 사진을 첨부해주세요." });
+  }
+
+  let clientCandidates;
+  try {
+    clientCandidates = JSON.parse(req.body.candidates ?? "");
+  } catch {
+    return res.status(400).json({ error: "candidates 필드는 JSON 배열이어야 합니다." });
+  }
+  if (!Array.isArray(clientCandidates) || clientCandidates.length === 0) {
+    return res.status(400).json({ error: "candidates 필드는 JSON 배열이어야 합니다." });
+  }
+
+  // 클라이언트가 보낸 candidates는 barcode/score만 신뢰하고, 이름/가격/재고/이미지는
+  // 항상 서버가 DB에서 다시 조회해 채운다 — 그래야 조작된 값이 그대로 공유되지 않는다.
+  const barcodes = [
+    ...new Set(clientCandidates.map((c) => String(c?.barcode ?? "").trim()).filter((b) => b !== "")),
+  ];
+  if (barcodes.length === 0) {
+    return res.status(400).json({ error: "candidates에 유효한 barcode가 없습니다." });
+  }
+
+  let candidates;
+  try {
+    const productResult = await pool.query(
+      "SELECT barcode, name, sale_price, current_stock, image_url FROM products WHERE barcode = ANY($1)",
+      [barcodes],
+    );
+    const productByBarcode = new Map(productResult.rows.map((r) => [r.barcode, r]));
+
+    candidates = clientCandidates
+      .map((c) => {
+        const product = productByBarcode.get(String(c?.barcode ?? "").trim());
+        if (!product) return null;
+        return {
+          barcode: product.barcode,
+          name: product.name,
+          salePrice: product.sale_price !== null ? Number(product.sale_price) : null,
+          currentStock: product.current_stock,
+          imageUrl: product.image_url,
+          score: typeof c?.score === "number" ? c.score : null,
+        };
+      })
+      .filter((c) => c !== null);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "공유 링크 생성 중 오류가 발생했습니다." });
+  }
+  if (candidates.length === 0) {
+    return res.status(400).json({ error: "candidates 중 유효한 상품이 없습니다." });
+  }
+
+  const shareId = crypto.randomUUID();
+  let s3Path;
+  try {
+    s3Path = await uploadShareImage(shareId, req.file.buffer, req.file.mimetype);
+    await pool.query(
+      "INSERT INTO scan_shares (id, s3_path, mode, candidates) VALUES ($1, $2, $3, $4)",
+      [shareId, s3Path, mode, JSON.stringify(candidates)],
+    );
+    return res.json({ shareId });
+  } catch (err) {
+    console.error(err);
+    // DB insert가 실패했는데 S3 업로드는 이미 끝났다면, orphan 파일로 남지 않게 정리한다.
+    if (s3Path) {
+      await deleteRawImage(s3Path).catch((e) => console.error("S3 정리 실패:", e));
+    }
+    return res.status(500).json({ error: "공유 링크 생성 중 오류가 발생했습니다." });
+  }
+});
+
+// 공유된 스캔 결과 조회: shareId로 A가 봤던 사진 URL(presigned, 짧게 유효)과
+// candidates를 그대로 돌려준다. 생성 후 7일이 지나면 만료로 취급한다.
+app.get("/api/scan/share/:id", async (req, res) => {
+  const shareId = String(req.params.id ?? "").trim();
+
+  try {
+    const result = await pool.query(
+      "SELECT s3_path, mode, candidates, created_at FROM scan_shares WHERE id = $1",
+      [shareId],
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "존재하지 않는 공유 링크입니다." });
+    }
+
+    const row = result.rows[0];
+    const ageMs = Date.now() - new Date(row.created_at).getTime();
+    if (ageMs > SHARE_EXPIRY_DAYS * 24 * 60 * 60 * 1000) {
+      return res.status(410).json({ error: "만료된 공유 링크입니다." });
+    }
+
+    const queryImageUrl = await getPresignedShareImageUrl(row.s3_path);
+    return res.json({
+      mode: row.mode,
+      queryImageUrl,
+      candidates: row.candidates,
+      createdAt: row.created_at,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "공유 결과 조회 중 오류가 발생했습니다." });
   }
 });
 
