@@ -96,7 +96,8 @@ app.get("/api/products/:barcode/related", async (req, res) => {
       `SELECT barcode, name, sale_price, current_stock, image_url, sales_count
        FROM products
        WHERE artist = $1 AND barcode != $2
-       ORDER BY sales_count DESC NULLS LAST, barcode`,
+       ORDER BY sales_count DESC NULLS LAST, barcode
+       LIMIT 10`,
       [artist, barcode],
     );
 
