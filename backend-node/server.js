@@ -37,6 +37,7 @@ const imageUpload = multer({
 const ALLOWED_ORIGINS = new Set([
   "http://localhost:3000",
   "https://object-poppy-vendetta.ngrok-free.dev",
+  "https://k-mecca.vercel.app",
 ]);
 app.use((req, res, next) => {
   if (ALLOWED_ORIGINS.has(req.headers.origin)) {
