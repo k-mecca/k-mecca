@@ -1,36 +1,61 @@
 import Image from "next/image";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { useScanStore } from "@/store/scanStore";
+import { productSharePost } from "@/service/product-share";
 import { formatUsd } from "@/utils/exchange-rate";
 import { getStockStatus } from "@/utils/stock-status";
 import { RiShareBoxLine } from "react-icons/ri";
 
-const ResultCarousel = () => {
+const ResultCarousel = ({ photoUrl }: { photoUrl?: string | null }) => {
   const { scanResult } = useScanStore();
+
+  const handleShareClick = async () => {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const existingShareId = new URLSearchParams(window.location.search).get("shareId")?.trim();
+
+    try {
+      let shareUrl: string;
+
+      if (existingShareId) {
+        // 주소에 shareId가 없을 때만 productSharePost 호출
+        shareUrl = `${baseUrl}/?shareId=${existingShareId}`;
+      } else {
+        if (!photoUrl || !scanResult?.length) {
+          alert("공유할 스캔 결과가 없습니다.");
+          return;
+        }
+
+        const photoRes = await fetch(photoUrl);
+        const photo = await photoRes.blob();
+        const { shareId } = await productSharePost(photo, scanResult);
+        shareUrl = `${baseUrl}/?shareId=${shareId}`;
+      }
+
+      const shareData = {
+        title: document.title,
+        url: shareUrl,
+      };
+
+      if (navigator.share) {
+        try {
+          await navigator.share(shareData);
+        } catch {
+          await navigator.clipboard.writeText(shareUrl);
+          alert("링크가 복사되었습니다.");
+        }
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+      alert("링크가 복사되었습니다.");
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "공유에 실패했습니다.");
+    }
+  };
 
   const handleProductClick = () => {
     window.open(`https://www.kmecca.com/goods/goods_view.php?goodsNo=1000000288`, "_blank", "noopener,noreferrer");
-  };
-
-  const handleShareClick = async () => {
-    const shareData = {
-      title: document.title,
-      url: window.location.href,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch {
-        await navigator.clipboard.writeText(window.location.href);
-        alert("링크가 복사되었습니다.");
-      }
-      return;
-    }
-
-    // 미지원 브라우저
-    await navigator.clipboard.writeText(window.location.href);
-    alert("링크가 복사되었습니다.");
   };
 
   return (
@@ -90,7 +115,7 @@ const ResultCarousel = () => {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation(); // 상위 버튼 이벤트 막기
-                    handleShareClick();
+                    void handleShareClick();
                   }}
                   className="bg-kmecca flex items-center justify-center gap-1 rounded-sm px-5 py-4">
                   <RiShareBoxLine className="text-[20px]" />
