@@ -6,7 +6,7 @@ import Scanner from "./Scanner";
 import NoProductDialog from "./NoProductDialog";
 import { useCustomerBarcodeStore } from "@/store/customerBarcodeStore";
 import { useScanStore } from "@/store/scanStore";
-import { productGet } from "@/service/staff";
+import { barcodeProductGet } from "@/service/customer";
 
 type BarcodeCameraProps = {
   getVideo: () => HTMLVideoElement | null | undefined;
@@ -83,8 +83,7 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
 
           void (async () => {
             try {
-              const barcodeData = await productGet(barcodeNumber);
-              console.log(barcodeData);
+              const barcodeData = await barcodeProductGet(barcodeNumber);
 
               if (cancelled) return;
 

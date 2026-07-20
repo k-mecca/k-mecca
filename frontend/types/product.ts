@@ -21,5 +21,8 @@ export type BarcodeData = {
   product?: {
     barcode: string;
     name: string;
+    salePrice?: number | null;
+    currentStock?: number | null;
+    imageUrl?: string | null;
   };
 };

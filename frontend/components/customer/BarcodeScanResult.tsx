@@ -1,9 +1,12 @@
 import Image from "next/image";
 import { useScanStore } from "@/store/scanStore";
+import { formatUsd } from "@/utils/exchange-rate";
+import { getStockStatus } from "@/utils/stock-status";
 import { RiShareBoxLine } from "react-icons/ri";
 
 const BarcodeScanResult = () => {
   const { barcodeResult } = useScanStore();
+  const stockStatus = getStockStatus(barcodeResult?.product?.currentStock);
 
   const handleProductClick = () => {
     window.open(`https://www.kmecca.com/goods/goods_view.php?goodsNo=1000000288`, "_blank", "noopener,noreferrer");
@@ -32,12 +35,14 @@ const BarcodeScanResult = () => {
 
             <div className="flex flex-col">
               <div className="flex items-center gap-1">
-                <div className="bg-kmecca h-3 w-3 rounded-full" />
-                <span className="text-kmecca text-sm font-semibold">구매 가능</span>
+                <div className={`h-3 w-3 rounded-full ${stockStatus.dotClassName}`} />
+                <span className={`text-sm font-semibold ${stockStatus.textClassName}`}>{stockStatus.label}</span>
               </div>
               <div className="flex items-end gap-2">
-                <span className="text-2xl font-semibold text-gray-600">₩00</span>
-                <span className="text-gray-500">$00</span>
+                <span className="text-2xl font-semibold text-gray-600">
+                  ₩{barcodeResult?.product?.salePrice?.toLocaleString()}
+                </span>
+                <span className="text-gray-500">${formatUsd(barcodeResult?.product?.salePrice ?? 0)}</span>
               </div>
             </div>
           </div>
