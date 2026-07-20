@@ -244,13 +244,10 @@ app.post("/api/scan", imageUpload.single("photo"), async (req, res) => {
 });
 
 // 스캔 결과 공유: A가 "공유하기"를 눌렀을 때만 호출됨 (스캔할 때마다 자동 저장 아님).
+// 매장 내 인식(store) 결과에만 있는 기능 — 업로드 확인 화면은 공유하기 자체가 없음.
 // A가 봤던 사진(query 이미지)과 그때 받은 candidates를 그대로 저장해두고,
 // B는 shareId 하나로 A가 본 화면을 그대로 재현해서 볼 수 있게 한다.
 app.post("/api/scan/share", imageUpload.single("photo"), async (req, res) => {
-  const mode = req.body.mode;
-  if (mode !== "store" && mode !== "upload") {
-    return res.status(400).json({ error: "mode 필드는 store 또는 upload여야 합니다." });
-  }
   if (!req.file) {
     return res.status(400).json({ error: "photo 필드로 사진을 첨부해주세요." });
   }
@@ -309,8 +306,8 @@ app.post("/api/scan/share", imageUpload.single("photo"), async (req, res) => {
   try {
     s3Path = await uploadShareImage(shareId, req.file.buffer, req.file.mimetype);
     await pool.query(
-      "INSERT INTO scan_shares (id, s3_path, mode, candidates) VALUES ($1, $2, $3, $4)",
-      [shareId, s3Path, mode, JSON.stringify(candidates)],
+      "INSERT INTO scan_shares (id, s3_path, candidates) VALUES ($1, $2, $3)",
+      [shareId, s3Path, JSON.stringify(candidates)],
     );
     return res.json({ shareId });
   } catch (err) {
@@ -330,7 +327,7 @@ app.get("/api/scan/share/:id", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT s3_path, mode, candidates, created_at FROM scan_shares WHERE id = $1",
+      "SELECT s3_path, candidates, created_at FROM scan_shares WHERE id = $1",
       [shareId],
     );
     if (result.rows.length === 0) {
@@ -345,7 +342,6 @@ app.get("/api/scan/share/:id", async (req, res) => {
 
     const queryImageUrl = await getPresignedShareImageUrl(row.s3_path);
     return res.json({
-      mode: row.mode,
       queryImageUrl,
       candidates: row.candidates,
       createdAt: row.created_at,
