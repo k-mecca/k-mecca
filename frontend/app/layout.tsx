@@ -35,9 +35,14 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="ko"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="mx-auto h-screen w-full max-w-[400px]">{children}</body>
+      <body
+        suppressHydrationWarning
+        className="mx-auto h-screen w-full max-w-[400px]">
+        {children}
+      </body>
     </html>
   );
 }

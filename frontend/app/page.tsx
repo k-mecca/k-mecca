@@ -389,6 +389,8 @@ export default function ObjectDetector() {
   const isCapturedRef = useRef(false);
 
   const [guideBox, setGuideBox] = useState<Rectangle | null>(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isRecognizing, setIsRecognizing] = useState(false);
   const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([]);
   const scanHistoryRef = useRef<ScanHistoryEntry[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
@@ -416,6 +418,7 @@ export default function ObjectDetector() {
     captureTriggeredRef.current = false;
     isCapturedRef.current = false;
 
+    setIsRecognizing(false);
     setIsCaptured(false);
     setScanResult(null);
     setBarcodeResult(null);
@@ -491,32 +494,28 @@ export default function ObjectDetector() {
 
       const id = crypto.randomUUID();
       const url = URL.createObjectURL(blob);
-      const entry: ScanHistoryEntry = { id, url, candidates: null };
 
-      // 최신 캡처가 왼쪽(앞)에 오도록 앞에 추가
-      scanHistoryRef.current = [entry, ...scanHistoryRef.current];
-      setScanHistory(scanHistoryRef.current);
-      selectedHistoryIdRef.current = id;
-      setSelectedHistoryId(id);
-
+      // 재촬영·오버레이 중단 (히스토리/캐러셀은 API 완료 후 함께 표시)
       isCapturedRef.current = true;
-      setIsCaptured(true);
-      setScanResult(null);
+      setIsRecognizing(true);
 
       try {
         const result = await scanRecognitionPost(blob);
-        const updated = scanHistoryRef.current.map((item) =>
-          item.id === id ? { ...item, candidates: result.candidates } : item,
-        );
-        scanHistoryRef.current = updated;
-        setScanHistory(updated);
+        const entry: ScanHistoryEntry = { id, url, candidates: result.candidates };
 
-        // 이 캡처가 여전히 선택된 경우에만 하단 결과 갱신
-        if (selectedHistoryIdRef.current === id) {
-          setScanResult(result.candidates);
-        }
+        scanHistoryRef.current = [entry, ...scanHistoryRef.current];
+        setScanHistory(scanHistoryRef.current);
+        selectedHistoryIdRef.current = id;
+        setSelectedHistoryId(id);
+        setScanResult(result.candidates);
+        setIsCaptured(true);
       } catch (error) {
         console.error(error);
+        URL.revokeObjectURL(url);
+        isCapturedRef.current = false;
+        captureTriggeredRef.current = false;
+      } finally {
+        setIsRecognizing(false);
       }
     })();
   }, [setScanResult, setIsCaptured]);
@@ -602,7 +601,7 @@ export default function ObjectDetector() {
 
   // 0.5초마다 detectCenter 로직 실행 (search,  캡처 전일때)
   useEffect(() => {
-    if (isCaptured || buttonValue !== "search") return;
+    if (isCaptured || isRecognizing || buttonValue !== "search") return;
 
     const timer = setInterval(detectCenter, CAMERA_INTERVAL_MS);
     return () => {
@@ -615,7 +614,7 @@ export default function ObjectDetector() {
       readySinceRef.current = null;
       captureTriggeredRef.current = false;
     };
-  }, [detectCenter, isCaptured, buttonValue]);
+  }, [detectCenter, isCaptured, isRecognizing, buttonValue]);
 
   // 웹캠 리사이징
   useEffect(() => {
@@ -643,6 +642,8 @@ export default function ObjectDetector() {
         className="absolute inset-0 h-full w-full object-cover"
         screenshotFormat="image/jpeg"
         videoConstraints={{ facingMode: { ideal: "environment" } }} // 후면 카메라 우선 요청 (전면은 "user")
+        onUserMedia={() => setIsCameraReady(true)}
+        onUserMediaError={() => setIsCameraReady(false)}
       />
       {/* 화면에는 보이지 않는 웹캠 프레임 분석 캔버스 */}
       <canvas
@@ -662,7 +663,7 @@ export default function ObjectDetector() {
           />
         )}
 
-        {guideBox && buttonValue === "search" && (
+        {guideBox && buttonValue === "search" && isCameraReady && (
           <>
             <div
               className="pointer-events-none absolute"
@@ -674,7 +675,7 @@ export default function ObjectDetector() {
               }}>
               <Scanner className="aspect-auto h-full w-full" />
 
-              {!isCaptured && (
+              {!isCaptured && !isRecognizing && (
                 <div className="absolute inset-0 overflow-hidden rounded-[22px]">
                   <ScanOverlay />
                 </div>
