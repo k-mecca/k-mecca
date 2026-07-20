@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const pretendard = localFont({
+  src: "../public/font/PretendardVariable.woff2",
+  display: "swap",
+  weight: "100 900",
+  variable: "--font-pretendard",
 });
 
 export const metadata: Metadata = {
@@ -37,10 +34,10 @@ export default function RootLayout({
     <html
       lang="ko"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      className={`${pretendard.variable} h-full antialiased`}>
       <body
         suppressHydrationWarning
-        className="mx-auto h-screen w-full max-w-[400px]">
+        className={`mx-auto h-screen w-full max-w-[400px] ${pretendard.className}`}>
         {children}
       </body>
     </html>
