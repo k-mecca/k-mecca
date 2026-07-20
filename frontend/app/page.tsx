@@ -396,6 +396,10 @@ export default function ObjectDetector() {
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const { scanResult, setScanResult, barcodeResult, setBarcodeResult, isCaptured, setIsCaptured } = useScanStore();
   const uploadResult = useCustomerStore((state) => state.uploadResult);
+  const uploadPreview = useCustomerStore((state) => state.uploadPreview);
+  const uploadScanning = useCustomerStore((state) => state.uploadScanning);
+  const uploadCompareMatch = useCustomerStore((state) => state.uploadCompareMatch);
+  const setUploadCompareMatch = useCustomerStore((state) => state.setUploadCompareMatch);
   const clearUploadImage = useCustomerStore((state) => state.clearUploadImage);
 
   const resetReadyHold = useCallback(() => {
@@ -501,6 +505,18 @@ export default function ObjectDetector() {
 
       try {
         const result = await scanRecognitionPost(blob);
+
+        const footerButton = useFooterStore.getState().buttonValue;
+        const uploaded = useCustomerStore.getState().uploadResult;
+
+        // 업로드 비교 모드 — ResultCarousel 대신 일치 여부만 기록
+        if (footerButton === "product" && uploaded) {
+          const topBarcode = result.candidates[0]?.barcode;
+          setUploadCompareMatch(Boolean(topBarcode && topBarcode === uploaded.barcode));
+          URL.revokeObjectURL(url);
+          return;
+        }
+
         const entry: ScanHistoryEntry = { id, url, candidates: result.candidates };
 
         scanHistoryRef.current = [entry, ...scanHistoryRef.current];
@@ -518,7 +534,7 @@ export default function ObjectDetector() {
         setIsRecognizing(false);
       }
     })();
-  }, [setScanResult, setIsCaptured]);
+  }, [setScanResult, setIsCaptured, setUploadCompareMatch]);
 
   useEffect(() => {
     return () => {
@@ -597,11 +613,37 @@ export default function ObjectDetector() {
 
   const buttonValue = useFooterStore((state) => state.buttonValue);
 
+  // 업로드 조회 완료 후 — 스캔 가이드가 다시 보이면 실물 인식 재개
+  const isUploadCompareMode =
+    buttonValue === "product" && Boolean(uploadResult) && !uploadScanning && uploadCompareMatch === null;
+
+  // 업로드 비교 모드 재스캔 — UploadRecognition(업로드 결과)은 유지
+  const rescanUploadCompare = useCallback(() => {
+    setUploadCompareMatch(null);
+    setIsRecognizing(false);
+  }, [setUploadCompareMatch]);
+
   const getWebcamVideo = useCallback(() => webcamRef.current?.video ?? null, []);
 
-  // 0.5초마다 detectCenter 로직 실행 (search,  캡처 전일때)
+  // 업로드 비교 모드 진입 시 감지 상태 초기화 (다시 촬영 가능하도록)
   useEffect(() => {
-    if (isCaptured || isRecognizing || buttonValue !== "search") return;
+    if (!isUploadCompareMode) return;
+
+    centerCountRef.current = 0;
+    stableCountRef.current = 0;
+    previousCenterFrameRef.current = null;
+    baselineCenterFrameRef.current = null;
+    readySinceRef.current = null;
+    captureTriggeredRef.current = false;
+    isCapturedRef.current = false;
+  }, [isUploadCompareMode]);
+
+  // 0.5초마다 detectCenter 로직 실행 (search 캡처 전 / 업로드 비교 모드)
+  useEffect(() => {
+    if (isRecognizing) return;
+
+    const searchMode = buttonValue === "search" && !isCaptured;
+    if (!searchMode && !isUploadCompareMode) return;
 
     const timer = setInterval(detectCenter, CAMERA_INTERVAL_MS);
     return () => {
@@ -614,7 +656,7 @@ export default function ObjectDetector() {
       readySinceRef.current = null;
       captureTriggeredRef.current = false;
     };
-  }, [detectCenter, isCaptured, isRecognizing, buttonValue]);
+  }, [detectCenter, isCaptured, isRecognizing, buttonValue, isUploadCompareMode]);
 
   // 웹캠 리사이징
   useEffect(() => {
@@ -663,36 +705,50 @@ export default function ObjectDetector() {
           />
         )}
 
-        {guideBox && buttonValue === "search" && isCameraReady && (
-          <>
-            <div
-              className="pointer-events-none absolute"
-              style={{
-                left: guideBox.x,
-                top: guideBox.y,
-                width: guideBox.width,
-                height: guideBox.height,
-              }}>
-              <Scanner className="aspect-auto h-full w-full" />
-
-              {!isCaptured && !isRecognizing && (
-                <div className="absolute inset-0 overflow-hidden rounded-[22px]">
-                  <ScanOverlay />
-                </div>
-              )}
-            </div>
-
-            <div
-              className="pointer-events-none absolute"
-              style={{
-                left: guideBox.x,
-                top: guideBox.y,
-                width: guideBox.width,
-                height: guideBox.height,
-              }}
-            />
-          </>
+        {isCaptured && uploadResult && !uploadScanning && (
+          <div className="absolute top-28 right-0 left-0 z-10 flex flex-col items-center text-center font-medium">
+            <p className="text-[18px] text-white">실물 상품과 비교할까요?</p>
+            <p className="text-white">사진 속 상품과 같은지 확인할 수 있어요</p>
+          </div>
         )}
+
+        {guideBox &&
+          isCameraReady &&
+          (buttonValue === "search" || (uploadResult && !uploadScanning && buttonValue === "product")) && (
+            <>
+              <div
+                className="pointer-events-none absolute"
+                style={{
+                  left: guideBox.x,
+                  top: guideBox.y,
+                  width: guideBox.width,
+                  height: guideBox.height,
+                }}>
+                <Scanner
+                  className="aspect-auto h-full w-full"
+                  showMatching={uploadCompareMatch !== null}
+                  isMatched={uploadCompareMatch === true}
+                  onMatchingClick={rescanUploadCompare}
+                />
+
+                {((!isCaptured && !isRecognizing) || (isUploadCompareMode && !isRecognizing)) && (
+                  <div className="absolute inset-0 overflow-hidden rounded-[22px]">
+                    <ScanOverlay />
+                  </div>
+                )}
+              </div>
+
+              <div
+                className="pointer-events-none absolute"
+                style={{
+                  left: guideBox.x,
+                  top: guideBox.y,
+                  width: guideBox.width,
+                  height: guideBox.height,
+                }}
+              />
+            </>
+          )}
 
         {buttonValue === "barcode" && <BarcodeCamera getVideo={getWebcamVideo} />}
 
@@ -705,10 +761,10 @@ export default function ObjectDetector() {
           </div>
 
           {/* 하단 컴포넌트 */}
-          <div className="pointer-events-auto mt-auto">{isCaptured && uploadResult && <UploadRecognition />}</div>
+          <div className="pointer-events-auto mt-auto">{uploadPreview && <UploadRecognition />}</div>
 
           <div className="pointer-events-auto">
-            {isCaptured && scanResult ? (
+            {buttonValue === "search" && isCaptured && scanResult ? (
               <ResultCarousel key={selectedHistoryId ?? "scan-result"} />
             ) : isCaptured && barcodeResult?.registered === true ? (
               <BarcodeScanResult />
