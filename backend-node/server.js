@@ -73,6 +73,42 @@ app.get("/api/products/lookup", async (req, res) => {
   }
 });
 
+// 고객용 바코드 조회: 매장 내 인식(store)에서 카메라 확신도가 낮을 때의 확정 대체
+// 수단으로 쓰인다. 직원용 /api/products/lookup(등록 전 존재 확인용, 최소 응답)과는
+// 용도가 달라 응답에 가격/재고/대표이미지까지 포함해 완전히 별도 엔드포인트로 둔다.
+app.get("/api/products/customer-lookup", async (req, res) => {
+  const barcode = String(req.query.barcode ?? "").trim();
+  if (barcode === "" || barcode.length > 64) {
+    return res.status(400).json({ error: "barcode 쿼리 파라미터가 필요합니다." });
+  }
+
+  try {
+    const result = await pool.query(
+      "SELECT barcode, name, sale_price, current_stock, image_url FROM products WHERE barcode = $1",
+      [barcode],
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ registered: false });
+    }
+
+    const row = result.rows[0];
+    return res.json({
+      registered: true,
+      product: {
+        barcode: row.barcode,
+        name: row.name,
+        salePrice: row.sale_price !== null ? Number(row.sale_price) : null,
+        currentStock: row.current_stock,
+        imageUrl: row.image_url,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "조회 중 오류가 발생했습니다." });
+  }
+});
+
 // 관련 상품(동일 아티스트) 조회: 스캔 결과로 얻은 바코드를 그대로 넣으면,
 // 그 상품의 artist를 찾아 같은 아티스트의 다른 상품들을 인기순(판매수량 내림차순)으로 반환한다.
 app.get("/api/products/:barcode/related", async (req, res) => {
