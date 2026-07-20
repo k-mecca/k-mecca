@@ -76,7 +76,7 @@ const ResultCarousel = () => {
                           {stockStatus.label}
                         </span>
                       </div>
-                      <div className="flex items-end gap-2">
+                      <div className="flex items-baseline gap-2">
                         <span className="text-2xl font-semibold text-gray-600">
                           ₩{item.salePrice?.toLocaleString()}
                         </span>

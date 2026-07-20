@@ -15,7 +15,7 @@ const UploadRecognition = () => {
 
   return (
     <div className="flex gap-2 px-4">
-      <div className="relative aspect-square h-[92px] w-[92px] shrink-0 overflow-hidden rounded-md border border-[#F9FAFB] shadow-sm">
+      <div className="relative aspect-square h-[92px] w-[92px] shrink-0 overflow-hidden rounded-md border border-[#F9FAFB] bg-white shadow-sm">
         <Image
           src={uploadPreview}
           alt="upload-preview"
@@ -39,7 +39,7 @@ const UploadRecognition = () => {
                 />
               )}
             </div>
-            <div className="relative z-10 flex flex-col">
+            <div className="relative z-10 flex min-w-0 flex-1 flex-col">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="text-xs text-[#4A5565]">{uploadResult.barcode}</span>
                 <p className="truncate text-lg font-medium text-[#1E2939]">{uploadResult.name}</p>

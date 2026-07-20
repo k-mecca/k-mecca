@@ -38,7 +38,7 @@ const BarcodeScanResult = () => {
                 <div className={`h-3 w-3 rounded-full ${stockStatus.dotClassName}`} />
                 <span className={`text-sm font-semibold ${stockStatus.textClassName}`}>{stockStatus.label}</span>
               </div>
-              <div className="flex items-end gap-2">
+              <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-semibold text-gray-600">
                   ₩{barcodeResult?.product?.salePrice?.toLocaleString()}
                 </span>

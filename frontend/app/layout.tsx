@@ -10,6 +10,7 @@ const pretendard = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   title: "케이메카",
   description: "상품을 쉽게 찾게 해주는 서비스",
   openGraph: {
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
     description: "상품을 쉽게 찾게 해주는 서비스",
     images: [
       {
-        url: "images/kmecca.png",
+        url: "/images/kmecca.png",
         width: 1200,
         height: 630,
       },
