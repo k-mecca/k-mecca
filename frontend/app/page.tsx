@@ -28,29 +28,29 @@ type ScanHistoryEntry = {
 };
 
 const GUIDE_PADDING = 24; // Scanner 이미지 여백 p-6 (24px)
-const CAMERA_INTERVAL_MS = 500; // 화면 분석 주기
+const CAMERA_INTERVAL_MS = 400; // 화면 분석 주기 0.4초
 
 const CENTER_CONFIRM = 2; // 중앙인지 2번 체크
 const STABLE_CONFIRM = 2; // 흔들림 없는지 2번 체크
 
 // 1단계 — 중앙 배치
 // THRESHOLD = 조건 통과 점수, RATIO = 변화 비율
-const VARIANCE_THRESHOLD = 70; // 가이드 박스 물체 인식 기준 점수
+const VARIANCE_THRESHOLD = 60; // 가이드 박스 물체 인식 기준 점수
 const CONTRAST_THRESHOLD = 6; // 가이드 박스 안팎 밝기 차이
 const VARIANCE_SURROUND_RATIO = 1.12; // 중앙 분산이 주변보다 이만큼 커야 물체로 인정
 const BASELINE_CHANGE_RATIO = 0.07; // 카메라 켠 직후의 픽셀 변화
 
 // 2단계 — 흔들림 (이전 프레임과 현재 비교)
-const STABLE_CHANGE_RATIO = 0.1; // 픽셀 변화
+const STABLE_CHANGE_RATIO = 0.15; // 픽셀 변화
 const PIXEL_DIFF_THRESHOLD = 20; // 밝기 변화
 
 // 3단계 — 밝기 & 선명도
 const BRIGHTNESS_MIN = 45;
 const BRIGHTNESS_MAX = 215;
-const SHARPNESS_THRESHOLD = 80;
+const SHARPNESS_THRESHOLD = 60;
 
-// 4단계 — 1초 유지 후 촬영
-const READY_HOLD_MS = 1000;
+// 4단계 — 0.8초 유지 후 촬영
+const READY_HOLD_MS = 800;
 
 interface Rectangle {
   x: number;
@@ -783,7 +783,7 @@ export default function ObjectDetector() {
           className={cn(
             "absolute inset-0 bg-black",
             isFrozenInset && "transition-[padding] duration-500 ease-out",
-            frozenInsetAnimated ? "px-4 pb-16 pt-0" : "p-0",
+            frozenInsetAnimated ? "px-4 pt-0 pb-16" : "p-0",
           )}>
           <div className="relative h-full w-full overflow-hidden">
             <Image
