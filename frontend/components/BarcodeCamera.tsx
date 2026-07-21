@@ -128,9 +128,13 @@ function BarcodeCamera({ getVideo, onDetected }: BarcodeCameraProps) {
 
   return (
     <>
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-        <Scanner />
-      </div>
+      {isCaptured ? (
+        <div className="pointer-events-none absolute inset-0 bg-[#1E293933]" />
+      ) : (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+          <Scanner />
+        </div>
+      )}
 
       <NoProductDialog
         open={noProductOpen}

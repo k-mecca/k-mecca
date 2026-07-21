@@ -4,6 +4,7 @@ export type ProductData = {
   salePrice?: number | null;
   currentStock?: number | null;
   imageUrl?: string | null;
+  onlineUrl?: string | null;
   score?: number;
 };
 
@@ -24,5 +25,6 @@ export type BarcodeData = {
     salePrice?: number | null;
     currentStock?: number | null;
     imageUrl?: string | null;
+    onlineUrl?: string | null;
   };
 };
