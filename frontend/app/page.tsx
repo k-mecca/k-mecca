@@ -18,7 +18,6 @@ import { useCustomerStore } from "@/store/customerStore";
 import { useFooterStore } from "@/store/footerStore";
 import type { ProductData } from "@/types/product";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
 
 type ScanHistoryEntry = {
   id: string;
@@ -436,17 +435,6 @@ export default function ObjectDetector() {
   // 새 캡처 이미지를 우선 — 이전 히스토리 이미지가 잠깐 보이는 깜빡임 방지
   const frozenBackgroundUrl =
     shareQueryImageUrl ?? (isCaptured || isRecognizing ? (captureBackgroundUrl ?? selectedScanUrl) : null);
-  // 인식 완료 후 결과 화면 — 배경 이미지 양옆 패딩으로 축소
-  const isFrozenInset = Boolean(frozenBackgroundUrl) && isCaptured && !isRecognizing;
-  const [frozenInsetAnimated, setFrozenInsetAnimated] = useState(false);
-
-  // 결과 진입 시에만 애니메이션, 뒤로가기(해제)는 즉시
-  useEffect(() => {
-    if (!isFrozenInset) return;
-
-    const id = requestAnimationFrame(() => setFrozenInsetAnimated(true));
-    return () => cancelAnimationFrame(id);
-  }, [isFrozenInset]);
 
   const resetReadyHold = useCallback(() => {
     readySinceRef.current = null;
@@ -474,7 +462,6 @@ export default function ObjectDetector() {
     setBarcodeResult(null);
     setShareQueryImageUrl(null);
     setCaptureBackgroundUrl(null);
-    setFrozenInsetAnimated(false);
     selectedHistoryIdRef.current = null;
     setSelectedHistoryId(null);
     clearUploadImage(); // uploadResult + preview 전체 초기화
@@ -560,7 +547,6 @@ export default function ObjectDetector() {
 
       // 새 캡처를 즉시 배경에 반영 (이전 이미지 깜빡임 방지)
       isCapturedRef.current = true;
-      setFrozenInsetAnimated(false);
       setCaptureBackgroundUrl(url);
       setIsRecognizing(true);
 
@@ -779,23 +765,16 @@ export default function ObjectDetector() {
   return (
     <div className="relative h-dvh w-full overflow-hidden">
       {frozenBackgroundUrl ? (
-        <div
-          className={cn(
-            "absolute inset-0 bg-black",
-            isFrozenInset && "transition-[padding] duration-500 ease-out",
-            frozenInsetAnimated ? "px-4 pt-0 pb-16" : "p-0",
-          )}>
-          <div className="relative h-full w-full overflow-hidden">
-            <Image
-              src={frozenBackgroundUrl}
-              alt="scan-capture"
-              fill
-              unoptimized
-              className="object-cover"
-              priority
-            />
-          </div>
-        </div>
+        <Image
+          src={frozenBackgroundUrl}
+          alt="scan-capture"
+          fill
+          unoptimized
+          className={`object-cover ${
+            !isShareView && buttonValue === "search" && captureBackgroundUrl ? "brightness-80" : ""
+          }`}
+          priority
+        />
       ) : (
         <Webcam
           ref={webcamRef}
@@ -808,6 +787,7 @@ export default function ObjectDetector() {
           onUserMediaError={() => setIsCameraReady(false)}
         />
       )}
+
       {/* 화면에는 보이지 않는 웹캠 프레임 분석 캔버스 */}
       <canvas
         ref={canvasRef}
@@ -839,23 +819,21 @@ export default function ObjectDetector() {
               (buttonValue === "search" || (uploadResult && !uploadScanning && buttonValue === "product")))) && (
             <>
               <div
-                className={cn(
-                  "pointer-events-none absolute",
-                  isFrozenInset && "transition-transform duration-500 ease-out",
-                  frozenInsetAnimated && "-translate-y-6",
-                )}
+                className="pointer-events-none absolute"
                 style={{
                   left: guideBox.x,
                   top: guideBox.y,
                   width: guideBox.width,
                   height: guideBox.height,
                 }}>
-                <Scanner
-                  className="aspect-auto h-full w-full"
-                  showMatching={uploadCompareMatch !== null}
-                  isMatched={uploadCompareMatch === true}
-                  onMatchingClick={rescanUploadCompare}
-                />
+                {(!captureBackgroundUrl || buttonValue !== "search" || isShareView) && (
+                  <Scanner
+                    className="aspect-auto h-full w-full"
+                    showMatching={uploadCompareMatch !== null}
+                    isMatched={uploadCompareMatch === true}
+                    onMatchingClick={rescanUploadCompare}
+                  />
+                )}
 
                 {!isShareView && ((!isCaptured && !isRecognizing) || (isUploadCompareMode && !isRecognizing)) && (
                   <div className="absolute inset-0 overflow-hidden rounded-[22px]">
