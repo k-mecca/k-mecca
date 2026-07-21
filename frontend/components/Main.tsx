@@ -36,18 +36,18 @@ const Main = ({ isScanned, photoCount, onCapture }: MainProps) => {
       )}
 
       {/* 촬영 버튼 & 바코드 입력 */}
-      {isScanned ? (
-        <footer className="absolute right-0 bottom-0 left-0 z-10 flex h-full max-h-40 items-center justify-center">
+      <footer className="absolute right-0 bottom-0 left-0 z-10 flex h-full max-h-40 items-center justify-center">
+        {isScanned ? (
           <button
             onClick={onCapture}
             className="relative h-18 w-18 disabled:opacity-40">
             <div className="absolute inset-0 rounded-full bg-[#E5E7EB]" />
             <div className="absolute inset-1.5 rounded-full bg-white" />
           </button>
-        </footer>
-      ) : (
-        <InputDrawer />
-      )}
+        ) : (
+          <InputDrawer />
+        )}
+      </footer>
     </div>
   );
 };

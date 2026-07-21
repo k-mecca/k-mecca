@@ -38,14 +38,15 @@ function Footer({ resetScan }: FooterProps) {
     if (!image) return;
 
     setUploadImage(image);
+    setIsCaptured(true);
     setTimeout(() => setUploadScanning(false), 2700);
 
     try {
       const res = await uploadRecognitionPost(image);
-      setIsCaptured(true);
       setUploadResult(res.candidates[0] ?? null);
     } catch (error) {
       console.error(error);
+      setUploadScanning(false);
     }
   };
 

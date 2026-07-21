@@ -12,41 +12,45 @@ import ResultCarousel from "@/components/customer/ResultCarousel";
 import BarcodeScanResult from "@/components/customer/BarcodeScanResult";
 import Footer from "@/components/customer/Footer";
 import { scanRecognitionPost } from "@/service/customer";
+import { productShareGet } from "@/service/product-share";
 import { useScanStore } from "@/store/scanStore";
 import { useCustomerStore } from "@/store/customerStore";
 import { useFooterStore } from "@/store/footerStore";
 import type { ProductData } from "@/types/product";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
 
 type ScanHistoryEntry = {
   id: string;
   url: string;
+  thumbnailUrl: string;
   candidates: ProductData[] | null;
 };
 
 const GUIDE_PADDING = 24; // Scanner 이미지 여백 p-6 (24px)
-const CAMERA_INTERVAL_MS = 500; // 화면 분석 주기
+const CAMERA_INTERVAL_MS = 400; // 화면 분석 주기 0.4초
 
 const CENTER_CONFIRM = 2; // 중앙인지 2번 체크
 const STABLE_CONFIRM = 2; // 흔들림 없는지 2번 체크
 
 // 1단계 — 중앙 배치
 // THRESHOLD = 조건 통과 점수, RATIO = 변화 비율
-const VARIANCE_THRESHOLD = 70; // 가이드 박스 물체 인식 기준 점수
+const VARIANCE_THRESHOLD = 60; // 가이드 박스 물체 인식 기준 점수
 const CONTRAST_THRESHOLD = 6; // 가이드 박스 안팎 밝기 차이
 const VARIANCE_SURROUND_RATIO = 1.12; // 중앙 분산이 주변보다 이만큼 커야 물체로 인정
 const BASELINE_CHANGE_RATIO = 0.07; // 카메라 켠 직후의 픽셀 변화
 
 // 2단계 — 흔들림 (이전 프레임과 현재 비교)
-const STABLE_CHANGE_RATIO = 0.1; // 픽셀 변화
+const STABLE_CHANGE_RATIO = 0.15; // 픽셀 변화
 const PIXEL_DIFF_THRESHOLD = 20; // 밝기 변화
 
 // 3단계 — 밝기 & 선명도
 const BRIGHTNESS_MIN = 45;
 const BRIGHTNESS_MAX = 215;
-const SHARPNESS_THRESHOLD = 80;
+const SHARPNESS_THRESHOLD = 60;
 
-// 4단계 — 1초 유지 후 촬영
-const READY_HOLD_MS = 1000;
+// 4단계 — 0.8초 유지 후 촬영
+const READY_HOLD_MS = 800;
 
 interface Rectangle {
   x: number;
@@ -104,8 +108,30 @@ function clampGuideBox(rect: Rectangle, maxWidth: number, maxHeight: number): Re
   return { x, y, width, height };
 }
 
-// 가이드 박스 영역만 잘라 JPEG Blob으로 저장
-async function captureGuideBoxPhoto(video: HTMLVideoElement, container: HTMLDivElement): Promise<Blob | null> {
+// 웹캠 전체 화면을 JPEG Blob으로 저장
+async function captureWebcamPhoto(video: HTMLVideoElement): Promise<Blob | null> {
+  const videoWidth = video.videoWidth;
+  const videoHeight = video.videoHeight;
+  if (!videoWidth || !videoHeight) return null;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = videoWidth;
+  canvas.height = videoHeight;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
+
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+}
+
+/** 가이드 박스 영역만 잘라 썸네일 Blob 생성 (화면 스캐너와 동일 영역) */
+async function createGuideBoxThumbnail(
+  blob: Blob,
+  video: HTMLVideoElement,
+  container: HTMLDivElement,
+): Promise<Blob | null> {
   const videoWidth = video.videoWidth;
   const videoHeight = video.videoHeight;
   if (!videoWidth || !videoHeight) return null;
@@ -117,24 +143,25 @@ async function captureGuideBoxPhoto(video: HTMLVideoElement, container: HTMLDivE
     videoHeight,
   );
 
+  const cropX = Math.floor(videoGuide.x);
+  const cropY = Math.floor(videoGuide.y);
+  const cropW = Math.floor(videoGuide.width);
+  const cropH = Math.floor(videoGuide.height);
+  if (cropW < 1 || cropH < 1) return null;
+
+  const bitmap = await createImageBitmap(blob);
   const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(videoGuide.width);
-  canvas.height = Math.floor(videoGuide.height);
+  canvas.width = cropW;
+  canvas.height = cropH;
 
   const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
+  if (!ctx) {
+    bitmap.close();
+    return null;
+  }
 
-  ctx.drawImage(
-    video,
-    Math.floor(videoGuide.x),
-    Math.floor(videoGuide.y),
-    canvas.width,
-    canvas.height,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  );
+  ctx.drawImage(bitmap, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+  bitmap.close();
 
   return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
 }
@@ -387,6 +414,7 @@ export default function ObjectDetector() {
   const readySinceRef = useRef<number | null>(null);
   const captureTriggeredRef = useRef(false);
   const isCapturedRef = useRef(false);
+  const selectedHistoryIdRef = useRef<string | null>(null);
 
   const [guideBox, setGuideBox] = useState<Rectangle | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
@@ -394,9 +422,31 @@ export default function ObjectDetector() {
   const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([]);
   const scanHistoryRef = useRef<ScanHistoryEntry[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [shareQueryImageUrl, setShareQueryImageUrl] = useState<string | null>(null);
+  const [captureBackgroundUrl, setCaptureBackgroundUrl] = useState<string | null>(null);
   const { scanResult, setScanResult, barcodeResult, setBarcodeResult, isCaptured, setIsCaptured } = useScanStore();
   const uploadResult = useCustomerStore((state) => state.uploadResult);
+  const uploadPreview = useCustomerStore((state) => state.uploadPreview);
+  const uploadScanning = useCustomerStore((state) => state.uploadScanning);
+  const uploadCompareMatch = useCustomerStore((state) => state.uploadCompareMatch);
+  const setUploadCompareMatch = useCustomerStore((state) => state.setUploadCompareMatch);
   const clearUploadImage = useCustomerStore((state) => state.clearUploadImage);
+  const isShareView = Boolean(shareQueryImageUrl);
+  const selectedScanUrl = scanHistory.find((item) => item.id === selectedHistoryId)?.url ?? null;
+  // 새 캡처 이미지를 우선 — 이전 히스토리 이미지가 잠깐 보이는 깜빡임 방지
+  const frozenBackgroundUrl =
+    shareQueryImageUrl ?? (isCaptured || isRecognizing ? (captureBackgroundUrl ?? selectedScanUrl) : null);
+  // 인식 완료 후 결과 화면 — 배경 이미지 양옆 패딩으로 축소
+  const isFrozenInset = Boolean(frozenBackgroundUrl) && isCaptured && !isRecognizing;
+  const [frozenInsetAnimated, setFrozenInsetAnimated] = useState(false);
+
+  // 결과 진입 시에만 애니메이션, 뒤로가기(해제)는 즉시
+  useEffect(() => {
+    if (!isFrozenInset) return;
+
+    const id = requestAnimationFrame(() => setFrozenInsetAnimated(true));
+    return () => cancelAnimationFrame(id);
+  }, [isFrozenInset]);
 
   const resetReadyHold = useCallback(() => {
     readySinceRef.current = null;
@@ -422,15 +472,25 @@ export default function ObjectDetector() {
     setIsCaptured(false);
     setScanResult(null);
     setBarcodeResult(null);
+    setShareQueryImageUrl(null);
+    setCaptureBackgroundUrl(null);
+    setFrozenInsetAnimated(false);
+    selectedHistoryIdRef.current = null;
+    setSelectedHistoryId(null);
     clearUploadImage(); // uploadResult + preview 전체 초기화
-  }, [setIsCaptured, setScanResult, setBarcodeResult, clearUploadImage]);
 
-  const selectedHistoryIdRef = useRef<string | null>(null);
+    if (new URLSearchParams(window.location.search).has("shareId")) {
+      window.history.replaceState({}, "", "/");
+    }
+  }, [setIsCaptured, setScanResult, setBarcodeResult, clearUploadImage]);
 
   const removeScanHistory = useCallback(
     (id: string) => {
       const target = scanHistoryRef.current.find((item) => item.id === id);
-      if (target) URL.revokeObjectURL(target.url);
+      if (target) {
+        URL.revokeObjectURL(target.url);
+        if (target.thumbnailUrl !== target.url) URL.revokeObjectURL(target.thumbnailUrl);
+      }
 
       const next = scanHistoryRef.current.filter((item) => item.id !== id);
       scanHistoryRef.current = next;
@@ -441,6 +501,7 @@ export default function ObjectDetector() {
         setSelectedHistoryId(null);
         setScanResult(null);
         setIsCaptured(false);
+        setCaptureBackgroundUrl(null);
         return;
       }
 
@@ -449,6 +510,7 @@ export default function ObjectDetector() {
         selectedHistoryIdRef.current = nextSelected.id;
         setSelectedHistoryId(nextSelected.id);
         setScanResult(nextSelected.candidates);
+        setCaptureBackgroundUrl(nextSelected.url);
       }
     },
     [setIsCaptured, setScanResult],
@@ -462,6 +524,7 @@ export default function ObjectDetector() {
       selectedHistoryIdRef.current = id;
       setSelectedHistoryId(id);
       setScanResult(item.candidates);
+      setCaptureBackgroundUrl(item.url);
       setIsCaptured(true);
     },
     [setIsCaptured, setScanResult],
@@ -484,9 +547,9 @@ export default function ObjectDetector() {
 
     captureTriggeredRef.current = true;
 
-    // 가이드 박스 촬영
+    // 웹캠 전체 화면 촬영
     void (async () => {
-      const blob = await captureGuideBoxPhoto(video, container);
+      const blob = await captureWebcamPhoto(video);
       if (!blob) {
         captureTriggeredRef.current = false;
         return;
@@ -495,13 +558,32 @@ export default function ObjectDetector() {
       const id = crypto.randomUUID();
       const url = URL.createObjectURL(blob);
 
-      // 재촬영·오버레이 중단 (히스토리/캐러셀은 API 완료 후 함께 표시)
+      // 새 캡처를 즉시 배경에 반영 (이전 이미지 깜빡임 방지)
       isCapturedRef.current = true;
+      setFrozenInsetAnimated(false);
+      setCaptureBackgroundUrl(url);
       setIsRecognizing(true);
+
+      const thumbnailBlob = await createGuideBoxThumbnail(blob, video, container);
+      const thumbnailUrl = thumbnailBlob ? URL.createObjectURL(thumbnailBlob) : url;
 
       try {
         const result = await scanRecognitionPost(blob);
-        const entry: ScanHistoryEntry = { id, url, candidates: result.candidates };
+
+        const footerButton = useFooterStore.getState().buttonValue;
+        const uploaded = useCustomerStore.getState().uploadResult;
+
+        // 업로드 비교 모드 — ResultCarousel 대신 일치 여부만 기록
+        if (footerButton === "product" && uploaded) {
+          const topBarcode = result.candidates[0]?.barcode;
+          setUploadCompareMatch(Boolean(topBarcode && topBarcode === uploaded.barcode));
+          setCaptureBackgroundUrl(null);
+          URL.revokeObjectURL(url);
+          if (thumbnailUrl !== url) URL.revokeObjectURL(thumbnailUrl);
+          return;
+        }
+
+        const entry: ScanHistoryEntry = { id, url, thumbnailUrl, candidates: result.candidates };
 
         scanHistoryRef.current = [entry, ...scanHistoryRef.current];
         setScanHistory(scanHistoryRef.current);
@@ -511,18 +593,23 @@ export default function ObjectDetector() {
         setIsCaptured(true);
       } catch (error) {
         console.error(error);
+        setCaptureBackgroundUrl(null);
         URL.revokeObjectURL(url);
+        if (thumbnailUrl !== url) URL.revokeObjectURL(thumbnailUrl);
         isCapturedRef.current = false;
         captureTriggeredRef.current = false;
       } finally {
         setIsRecognizing(false);
       }
     })();
-  }, [setScanResult, setIsCaptured]);
+  }, [setScanResult, setIsCaptured, setUploadCompareMatch]);
 
   useEffect(() => {
     return () => {
-      scanHistoryRef.current.forEach((item) => URL.revokeObjectURL(item.url));
+      scanHistoryRef.current.forEach((item) => {
+        URL.revokeObjectURL(item.url);
+        if (item.thumbnailUrl !== item.url) URL.revokeObjectURL(item.thumbnailUrl);
+      });
     };
   }, []);
 
@@ -597,11 +684,37 @@ export default function ObjectDetector() {
 
   const buttonValue = useFooterStore((state) => state.buttonValue);
 
+  // 업로드 조회 완료 후 — 스캔 가이드가 다시 보이면 실물 인식 재개
+  const isUploadCompareMode =
+    buttonValue === "product" && Boolean(uploadResult) && !uploadScanning && uploadCompareMatch === null;
+
+  // 업로드 비교 모드 재스캔 — UploadRecognition(업로드 결과)은 유지
+  const rescanUploadCompare = useCallback(() => {
+    setUploadCompareMatch(null);
+    setIsRecognizing(false);
+  }, [setUploadCompareMatch]);
+
   const getWebcamVideo = useCallback(() => webcamRef.current?.video ?? null, []);
 
-  // 0.5초마다 detectCenter 로직 실행 (search,  캡처 전일때)
+  // 업로드 비교 모드 진입 시 감지 상태 초기화 (다시 촬영 가능하도록)
   useEffect(() => {
-    if (isCaptured || isRecognizing || buttonValue !== "search") return;
+    if (!isUploadCompareMode) return;
+
+    centerCountRef.current = 0;
+    stableCountRef.current = 0;
+    previousCenterFrameRef.current = null;
+    baselineCenterFrameRef.current = null;
+    readySinceRef.current = null;
+    captureTriggeredRef.current = false;
+    isCapturedRef.current = false;
+  }, [isUploadCompareMode]);
+
+  // 0.5초마다 detectCenter 로직 실행 (search 캡처 전 / 업로드 비교 모드)
+  useEffect(() => {
+    if (isShareView || isRecognizing) return;
+
+    const searchMode = buttonValue === "search" && !isCaptured;
+    if (!searchMode && !isUploadCompareMode) return;
 
     const timer = setInterval(detectCenter, CAMERA_INTERVAL_MS);
     return () => {
@@ -614,8 +727,38 @@ export default function ObjectDetector() {
       readySinceRef.current = null;
       captureTriggeredRef.current = false;
     };
-  }, [detectCenter, isCaptured, isRecognizing, buttonValue]);
+  }, [detectCenter, isCaptured, isRecognizing, buttonValue, isUploadCompareMode, isShareView]);
 
+  // 공유 링크로 진입 시 스캔 결과 복원
+  useEffect(() => {
+    const shareId = new URLSearchParams(window.location.search).get("shareId")?.trim();
+    if (!shareId) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const data = await productShareGet(shareId);
+        if (cancelled) return;
+
+        setShareQueryImageUrl(data.queryImageUrl);
+        setScanResult(data.candidates);
+        setIsCaptured(true);
+        isCapturedRef.current = true;
+        useFooterStore.getState().setButtonValue("search");
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          alert(error instanceof Error ? error.message : "공유 결과를 불러오지 못했습니다.");
+          window.history.replaceState({}, "", "/");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setScanResult, setIsCaptured]);
   // 웹캠 리사이징
   useEffect(() => {
     const container = containerRef.current;
@@ -635,16 +778,36 @@ export default function ObjectDetector() {
 
   return (
     <div className="relative h-dvh w-full overflow-hidden">
-      <Webcam
-        ref={webcamRef}
-        audio={false}
-        playsInline
-        className="absolute inset-0 h-full w-full object-cover"
-        screenshotFormat="image/jpeg"
-        videoConstraints={{ facingMode: { ideal: "environment" } }} // 후면 카메라 우선 요청 (전면은 "user")
-        onUserMedia={() => setIsCameraReady(true)}
-        onUserMediaError={() => setIsCameraReady(false)}
-      />
+      {frozenBackgroundUrl ? (
+        <div
+          className={cn(
+            "absolute inset-0 bg-black",
+            isFrozenInset && "transition-[padding] duration-500 ease-out",
+            frozenInsetAnimated ? "px-4 pt-0 pb-16" : "p-0",
+          )}>
+          <div className="relative h-full w-full overflow-hidden">
+            <Image
+              src={frozenBackgroundUrl}
+              alt="scan-capture"
+              fill
+              unoptimized
+              className="object-cover"
+              priority
+            />
+          </div>
+        </div>
+      ) : (
+        <Webcam
+          ref={webcamRef}
+          audio={false}
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+          screenshotFormat="image/jpeg"
+          videoConstraints={{ facingMode: { ideal: "environment" } }} // 후면 카메라 우선 요청 (전면은 "user")
+          onUserMedia={() => setIsCameraReady(true)}
+          onUserMediaError={() => setIsCameraReady(false)}
+        />
+      )}
       {/* 화면에는 보이지 않는 웹캠 프레임 분석 캔버스 */}
       <canvas
         ref={canvasRef}
@@ -654,47 +817,66 @@ export default function ObjectDetector() {
       <div
         ref={containerRef}
         className="absolute inset-0 z-10">
-        {buttonValue === "search" && (
+        {!isShareView && buttonValue === "search" && (
           <ScanHistory
-            items={scanHistory}
+            items={scanHistory.map(({ id, thumbnailUrl }) => ({ id, url: thumbnailUrl }))}
             selectedId={selectedHistoryId}
             onSelect={selectScanHistory}
             onRemove={removeScanHistory}
           />
         )}
 
-        {guideBox && buttonValue === "search" && isCameraReady && (
-          <>
-            <div
-              className="pointer-events-none absolute"
-              style={{
-                left: guideBox.x,
-                top: guideBox.y,
-                width: guideBox.width,
-                height: guideBox.height,
-              }}>
-              <Scanner className="aspect-auto h-full w-full" />
-
-              {!isCaptured && !isRecognizing && (
-                <div className="absolute inset-0 overflow-hidden rounded-[22px]">
-                  <ScanOverlay />
-                </div>
-              )}
-            </div>
-
-            <div
-              className="pointer-events-none absolute"
-              style={{
-                left: guideBox.x,
-                top: guideBox.y,
-                width: guideBox.width,
-                height: guideBox.height,
-              }}
-            />
-          </>
+        {!isShareView && isCaptured && uploadResult && !uploadScanning && (
+          <div className="absolute top-28 right-0 left-0 z-10 flex flex-col items-center text-center font-medium">
+            <p className="text-[18px] text-white">실물 상품과 비교할까요?</p>
+            <p className="text-white">사진 속 상품과 같은지 확인할 수 있어요</p>
+          </div>
         )}
 
-        {buttonValue === "barcode" && <BarcodeCamera getVideo={getWebcamVideo} />}
+        {guideBox &&
+          (isShareView ||
+            (isCameraReady &&
+              (buttonValue === "search" || (uploadResult && !uploadScanning && buttonValue === "product")))) && (
+            <>
+              <div
+                className={cn(
+                  "pointer-events-none absolute",
+                  isFrozenInset && "transition-transform duration-500 ease-out",
+                  frozenInsetAnimated && "-translate-y-6",
+                )}
+                style={{
+                  left: guideBox.x,
+                  top: guideBox.y,
+                  width: guideBox.width,
+                  height: guideBox.height,
+                }}>
+                <Scanner
+                  className="aspect-auto h-full w-full"
+                  showMatching={uploadCompareMatch !== null}
+                  isMatched={uploadCompareMatch === true}
+                  onMatchingClick={rescanUploadCompare}
+                />
+
+                {!isShareView && ((!isCaptured && !isRecognizing) || (isUploadCompareMode && !isRecognizing)) && (
+                  <div className="absolute inset-0 overflow-hidden rounded-[22px]">
+                    <ScanOverlay />
+                  </div>
+                )}
+              </div>
+
+              <div
+                className="pointer-events-none absolute"
+                style={{
+                  left: guideBox.x,
+                  top: guideBox.y,
+                  width: guideBox.width,
+                  height: guideBox.height,
+                }}
+              />
+            </>
+          )}
+
+        {!isShareView && buttonValue === "barcode" && <BarcodeCamera getVideo={getWebcamVideo} />}
 
         <div className="pointer-events-none absolute inset-0 flex flex-col">
           <div className="pointer-events-auto">
@@ -705,15 +887,20 @@ export default function ObjectDetector() {
           </div>
 
           {/* 하단 컴포넌트 */}
-          <div className="pointer-events-auto mt-auto">{isCaptured && uploadResult && <UploadRecognition />}</div>
+          <div className="pointer-events-auto mt-auto">{!isShareView && uploadPreview && <UploadRecognition />}</div>
 
           <div className="pointer-events-auto">
-            {isCaptured && scanResult ? (
-              <ResultCarousel key={selectedHistoryId ?? "scan-result"} />
+            {isShareView && scanResult ? (
+              <ResultCarousel photoUrl={shareQueryImageUrl} />
+            ) : buttonValue === "search" && isCaptured && scanResult ? (
+              <ResultCarousel
+                key={selectedHistoryId ?? "scan-result"}
+                photoUrl={scanHistory.find((item) => item.id === selectedHistoryId)?.url}
+              />
             ) : isCaptured && barcodeResult?.registered === true ? (
               <BarcodeScanResult />
             ) : (
-              <Footer resetScan={resetScan} />
+              !isShareView && <Footer resetScan={resetScan} />
             )}
           </div>
         </div>
