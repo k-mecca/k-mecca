@@ -16,15 +16,15 @@ const BarcodeScanResult = () => {
     <div className="p-4">
       <div className="flex flex-col gap-3 rounded-md bg-white px-4 py-5">
         <div className="flex gap-2">
-          <div className="relative aspect-square h-[124px] w-[124px] shrink-0 rounded-md border">
-            {/* {barcodeResult?.product?.imageUrl && (
+          <div className="relative aspect-square h-31 w-31 shrink-0 overflow-hidden rounded-md">
+            {barcodeResult?.product?.imageUrl && (
               <Image
                 src={barcodeResult.product.imageUrl}
                 alt={barcodeResult.product.name}
                 fill
                 unoptimized // 외부 이미지 도메인 허용
               />
-            )} */}
+            )}
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col">
@@ -50,7 +50,7 @@ const BarcodeScanResult = () => {
 
         <button
           onClick={() => handleProductClick()}
-          className="bg-kmecca flex items-center justify-center gap-1 rounded-sm px-5 py-4">
+          className="flex items-center justify-center gap-1 rounded-sm bg-[#e5e7eb] px-5 py-4">
           <RiShareBoxLine className="text-[20px]" />
           <span className="text-sm font-semibold">상품 공유하기</span>
         </button>

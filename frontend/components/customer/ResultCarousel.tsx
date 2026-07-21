@@ -77,7 +77,7 @@ const ResultCarousel = ({ photoUrl }: { photoUrl?: string | null }) => {
                 onClick={handleProductClick}
                 className="flex flex-col gap-3 rounded-md bg-white px-4 py-5">
                 <div className="flex gap-2">
-                  <div className="relative aspect-square h-[124px] w-[124px] shrink-0 rounded-md">
+                  <div className="relative aspect-square h-31 w-31 shrink-0 overflow-hidden rounded-md">
                     {item.imageUrl && (
                       <Image
                         src={item.imageUrl}
@@ -117,7 +117,7 @@ const ResultCarousel = ({ photoUrl }: { photoUrl?: string | null }) => {
                     e.stopPropagation(); // 상위 버튼 이벤트 막기
                     void handleShareClick();
                   }}
-                  className="bg-kmecca flex items-center justify-center gap-1 rounded-sm px-5 py-4">
+                  className="flex items-center justify-center gap-1 rounded-sm bg-[#e5e7eb] px-5 py-4">
                   <RiShareBoxLine className="text-[20px]" />
                   <span className="text-sm font-semibold">상품 공유하기</span>
                 </button>
