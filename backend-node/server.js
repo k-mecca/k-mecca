@@ -88,7 +88,7 @@ app.get("/api/products/customer-lookup", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT barcode, name, sale_price, current_stock, image_url, online_url FROM products WHERE barcode = $1",
+      "SELECT barcode, name, sale_price, current_stock, image_url, online_url, artist FROM products WHERE barcode = $1",
       [barcode],
     );
 
@@ -106,6 +106,7 @@ app.get("/api/products/customer-lookup", async (req, res) => {
         currentStock: row.current_stock,
         imageUrl: row.image_url,
         onlineUrl: row.online_url,
+        artist: row.artist,
       },
     });
   } catch (err) {
