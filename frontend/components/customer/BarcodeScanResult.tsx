@@ -9,12 +9,33 @@ const BarcodeScanResult = () => {
   const stockStatus = getStockStatus(barcodeResult?.product?.currentStock);
 
   const handleProductClick = () => {
-    window.open(`https://www.kmecca.com/goods/goods_view.php?goodsNo=1000000288`, "_blank", "noopener,noreferrer");
+    if (barcodeResult?.product?.onlineUrl) {
+      window.open(barcodeResult.product.onlineUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    window.open(`https://www.kmecca.com/goods/goods_list.php?cateCd=012004`, "_blank", "noopener,noreferrer");
+  };
+
+  const handleShareClick = async () => {
+    const shareData = {
+      title: document.title,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      await navigator.share(shareData);
+      return;
+    }
+
+    await navigator.clipboard.writeText(shareData.url);
+    alert("링크가 복사되었습니다.");
   };
 
   return (
     <div className="p-4">
-      <div className="flex flex-col gap-3 rounded-md bg-white px-4 py-5">
+      <div
+        onClick={handleProductClick}
+        className="flex cursor-pointer flex-col gap-3 rounded-md bg-white px-4 py-5">
         <div className="flex gap-2">
           <div className="relative aspect-square h-31 w-31 shrink-0 overflow-hidden rounded-md">
             {barcodeResult?.product?.imageUrl && (
@@ -49,7 +70,11 @@ const BarcodeScanResult = () => {
         </div>
 
         <button
-          onClick={() => handleProductClick()}
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleShareClick();
+          }}
           className="flex items-center justify-center gap-1 rounded-sm bg-[#e5e7eb] px-5 py-4">
           <RiShareBoxLine className="text-[20px]" />
           <span className="text-sm font-semibold">상품 공유하기</span>

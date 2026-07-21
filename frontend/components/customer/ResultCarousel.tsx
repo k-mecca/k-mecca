@@ -54,8 +54,13 @@ const ResultCarousel = ({ photoUrl }: { photoUrl?: string | null }) => {
     }
   };
 
-  const handleProductClick = () => {
-    window.open(`https://www.kmecca.com/goods/goods_view.php?goodsNo=1000000288`, "_blank", "noopener,noreferrer");
+  const handleProductClick = (onlineUrl?: string | null) => {
+    if (onlineUrl) {
+      window.open(onlineUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    window.open(`https://www.kmecca.com/goods/goods_list.php?cateCd=012004`, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -74,8 +79,8 @@ const ResultCarousel = ({ photoUrl }: { photoUrl?: string | null }) => {
               key={index}
               className="basis-[94%] pl-2">
               <div
-                onClick={handleProductClick}
-                className="flex flex-col gap-3 rounded-md bg-white px-4 py-5">
+                onClick={() => handleProductClick(item.onlineUrl)}
+                className="flex cursor-pointer flex-col gap-3 rounded-md bg-white px-4 py-5">
                 <div className="flex gap-2">
                   <div className="relative aspect-square h-31 w-31 shrink-0 overflow-hidden rounded-md">
                     {item.imageUrl && (

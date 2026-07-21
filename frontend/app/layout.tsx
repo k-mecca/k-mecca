@@ -11,14 +11,14 @@ const pretendard = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
-  title: "케이메카",
-  description: "상품을 쉽게 찾게 해주는 서비스",
+  title: "K-MECCA",
+  description: "상품 인식으로 재고·가격 확인까지 도와주는 쇼핑 어시스턴트",
   openGraph: {
-    title: "케이메카",
-    description: "상품을 쉽게 찾게 해주는 서비스",
+    title: "K-MECCA",
+    description: "상품 인식으로 재고·가격 확인까지 도와주는 쇼핑 어시스턴트",
     images: [
       {
-        url: "/images/kmecca.png",
+        url: "/images/k-mecca.png",
         width: 1200,
         height: 630,
       },
