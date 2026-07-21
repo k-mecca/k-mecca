@@ -88,7 +88,7 @@ app.get("/api/products/customer-lookup", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT barcode, name, sale_price, current_stock, image_url FROM products WHERE barcode = $1",
+      "SELECT barcode, name, sale_price, current_stock, image_url, online_url FROM products WHERE barcode = $1",
       [barcode],
     );
 
@@ -105,6 +105,7 @@ app.get("/api/products/customer-lookup", async (req, res) => {
         salePrice: row.sale_price !== null ? Number(row.sale_price) : null,
         currentStock: row.current_stock,
         imageUrl: row.image_url,
+        onlineUrl: row.online_url,
       },
     });
   } catch (err) {
@@ -133,7 +134,7 @@ app.get("/api/products/:barcode/related", async (req, res) => {
     }
 
     const relatedResult = await pool.query(
-      `SELECT barcode, name, sale_price, current_stock, image_url, sales_count
+      `SELECT barcode, name, sale_price, current_stock, image_url, online_url, sales_count
        FROM products
        WHERE artist = $1 AND barcode != $2
        ORDER BY sales_count DESC NULLS LAST, barcode
@@ -149,6 +150,7 @@ app.get("/api/products/:barcode/related", async (req, res) => {
         salePrice: r.sale_price !== null ? Number(r.sale_price) : null,
         currentStock: r.current_stock,
         imageUrl: r.image_url,
+        onlineUrl: r.online_url,
         salesCount: r.sales_count,
       })),
     });
