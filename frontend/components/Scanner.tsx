@@ -17,8 +17,11 @@ const Scanner = ({ className, showMatching = false, isMatched = false, onMatchin
         <button
           type="button"
           onClick={onMatchingClick}
-          className="bg-kmecca pointer-events-auto absolute -top-4 left-1/2 z-10 flex -translate-x-1/2 items-center justify-center gap-2 rounded-full px-4 py-2 text-gray-800">
-          <span className="text-sm font-semibold">{isMatched ? "Matching!" : "Miss Matching!"}</span>
+          className={cn(
+            "pointer-events-auto absolute -top-4 left-1/2 z-10 flex -translate-x-1/2 items-center justify-center gap-2 rounded-full px-4 py-2 text-gray-800 shadow-sm backdrop-blur-sm",
+            isMatched ? "bg-kmecca" : "bg-[#D3351D]/75",
+          )}>
+          <span className="text-sm font-semibold">{isMatched ? "Matching!" : "Mismatching"}</span>
           <FiRotateCcw className="h-4 w-4" />
         </button>
       )}

@@ -52,7 +52,7 @@ const UploadRecognition = () => {
             </div>
             <div className="relative z-10 flex min-w-0 flex-1 flex-col">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="text-xs text-[#4A5565]">{uploadResult.barcode}</span>
+                <span className="text-xs text-[#4A5565]">{uploadResult.artist ?? uploadResult.barcode}</span>
                 <p className="truncate text-lg font-medium text-[#1E2939]">{uploadResult.name}</p>
               </div>
               <div className="flex items-center gap-1">

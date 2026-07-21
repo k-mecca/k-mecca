@@ -41,13 +41,13 @@ const VARIANCE_SURROUND_RATIO = 1.12; // 중앙 분산이 주변보다 이만큼
 const BASELINE_CHANGE_RATIO = 0.07; // 카메라 켠 직후의 픽셀 변화
 
 // 2단계 — 흔들림 (이전 프레임과 현재 비교)
-const STABLE_CHANGE_RATIO = 0.15; // 픽셀 변화
+const STABLE_CHANGE_RATIO = 0.2; // 픽셀 변화
 const PIXEL_DIFF_THRESHOLD = 20; // 밝기 변화
 
 // 3단계 — 밝기 & 선명도
 const BRIGHTNESS_MIN = 45;
 const BRIGHTNESS_MAX = 215;
-const SHARPNESS_THRESHOLD = 60;
+const SHARPNESS_THRESHOLD = 45;
 
 // 4단계 — 0.8초 유지 후 촬영
 const READY_HOLD_MS = 800;

@@ -1,6 +1,7 @@
 export type ProductData = {
   barcode: string;
   name: string;
+  artist?: string | null;
   salePrice?: number | null;
   currentStock?: number | null;
   imageUrl?: string | null;
@@ -22,6 +23,7 @@ export type BarcodeData = {
   product?: {
     barcode: string;
     name: string;
+    artist?: string | null;
     salePrice?: number | null;
     currentStock?: number | null;
     imageUrl?: string | null;

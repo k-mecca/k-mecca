@@ -95,7 +95,7 @@ const ResultCarousel = ({ photoUrl }: { photoUrl?: string | null }) => {
 
                   <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <span className="text-xs text-[#4A5565]">{item.barcode}</span>
+                      <span className="text-xs text-[#4A5565]">{item.artist ?? item.barcode}</span>
                       <p className="truncate text-lg font-medium text-[#1E2939]">{item.name}</p>
                     </div>
 

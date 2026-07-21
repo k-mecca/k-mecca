@@ -50,7 +50,9 @@ const BarcodeScanResult = () => {
 
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <span className="text-xs text-[#4A5565]">{barcodeResult?.product?.barcode}</span>
+              <span className="text-xs text-[#4A5565]">
+                {barcodeResult?.product?.artist ?? barcodeResult?.product?.barcode}
+              </span>
               <p className="truncate text-lg font-medium text-[#1E2939]">{barcodeResult?.product?.name}</p>
             </div>
 
