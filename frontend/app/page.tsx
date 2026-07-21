@@ -807,9 +807,9 @@ export default function ObjectDetector() {
         )}
 
         {!isShareView && isCaptured && uploadResult && !uploadScanning && (
-          <div className="absolute top-28 right-0 left-0 z-10 flex flex-col items-center text-center font-medium">
+          <div className="absolute top-20 right-0 left-0 z-10 flex flex-col items-center text-center font-medium">
             <p className="text-[18px] text-white">실물 상품과 비교할까요?</p>
-            <p className="text-white">사진 속 상품과 같은지 확인할 수 있어요</p>
+            {/* <p className="text-white">사진 속 상품과 같은지 확인할 수 있어요</p> */}
           </div>
         )}
 
@@ -826,7 +826,7 @@ export default function ObjectDetector() {
                   width: guideBox.width,
                   height: guideBox.height,
                 }}>
-                {(!captureBackgroundUrl || buttonValue !== "search" || isShareView) && (
+                {!isShareView && (!captureBackgroundUrl || buttonValue !== "search") && (
                   <Scanner
                     className="aspect-auto h-full w-full"
                     showMatching={uploadCompareMatch !== null}
